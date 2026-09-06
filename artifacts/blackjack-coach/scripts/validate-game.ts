@@ -2,6 +2,7 @@ import { canDouble, canSplit, createShoe, dealInitialRound, dealerShouldHit, han
 import type { GameHand } from '../lib/game.ts';
 import { DEFAULT_TABLE_RULES } from '../lib/rules.ts';
 import { estimatedPlayerEdge, hiLoValue, trueCount } from '../lib/counting.ts';
+import { estimateHitStandOdds } from '../lib/odds.ts';
 let cardId = 0;
 const c = (rank: any) => ({ rank, suit: '♠' as const, id: `${rank}-${cardId++}` });
 const hand = (cards: any[], bet = 10): GameHand => ({ id: 'h', cards: cards.map(c), bet, doubled: false, surrendered: false, splitAces: false, fromSplit: false });
@@ -26,4 +27,7 @@ ok(hiLoValue(c('2')) === 1 && hiLoValue(c('7')) === 0 && hiLoValue(c('A')) === -
 ok(trueCount(6, 156) === 2, 'true count uses fractional decks remaining');
 ok(estimatedPlayerEdge(DEFAULT_TABLE_RULES, 2) > estimatedPlayerEdge(DEFAULT_TABLE_RULES, 0), 'positive true count improves estimated player edge');
 ok(DEFAULT_TABLE_RULES.multipleHandsEnabled === true, 'multiple-hand play remains the default');
+const oddsShoe = createShoe(1);
+const twentyOdds = estimateHitStandOdds([c('T'), c('K')], c('6'), oddsShoe, DEFAULT_TABLE_RULES, 400);
+ok(twentyOdds.standWin > twentyOdds.hitWin && twentyOdds.standWin > 50, 'standing on 20 is safer than hitting once');
 console.log('Blackjack game validation passed.');

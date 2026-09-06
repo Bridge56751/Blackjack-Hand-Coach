@@ -7,4 +7,4 @@ Gameplay should feel like a polished classic portrait blackjack game: full-scree
 
 **Why:** The user rejected flat top-down layouts and approved a classic full-felt mobile reference for its table treatment, but explicitly did not want that reference's balance, level, or settings chrome copied.
 
-**How to apply:** Use references for the physical table, cards, markings, chips, and controls only. Keep Blackjack Coach's surrounding UI original and restrained. Present empty wagers as one cohesive table marking.
+**How to apply:** Use references for the physical table, cards, markings, chips, and controls only. Keep surrounding UI original and restrained. Present empty wagers as one cohesive marking, and reserve the upper table corners for useful coaching/count information rather than decorative dealer equipment.

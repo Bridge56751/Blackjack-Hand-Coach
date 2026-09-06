@@ -7,11 +7,12 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCoach, Decision } from '@/lib/context';
-import { getBasicStrategy, Action } from '@/lib/strategy';
+import { getBasicStrategy, getActionName, Action } from '@/lib/strategy';
 import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealInitialRound, dealerShouldHit, draw, handTotal, isBlackjack, settleHand, settleInsurance } from '@/lib/game';
 import { CardView } from '@/components/CardView';
 import { Chip, ChipStack } from '@/components/Chip';
 import { estimatedPlayerEdge, hiLoValue, trueCount } from '@/lib/counting';
+import { estimateHitStandOdds } from '@/lib/odds';
 
 type Phase = 'betting' | 'dealing' | 'insurance' | 'playing' | 'settled';
 const chips = [5, 25, 100, 250, 500];
@@ -211,6 +212,17 @@ export default function SessionScreen() {
   const unseenCards = shoe.length + (dealer[1] && phase !== 'settled' ? 1 : 0);
   const currentTrueCount = trueCount(runningCount, unseenCards);
   const playerEdge = estimatedPlayerEdge(rules, currentTrueCount);
+  const hintAction = phase === 'playing' && current && dealer[0]
+    ? getBasicStrategy(current.cards.map(cardRankForStrategy), cardRankForStrategy(dealer[0]), rules)
+    : undefined;
+  const hitStandOdds = phase === 'playing' && current && dealer[0]
+    ? estimateHitStandOdds(
+        current.cards,
+        dealer[0],
+        dealer[1] ? [...shoe, dealer[1]] : shoe,
+        rules,
+      )
+    : undefined;
   const isCompactTable = Dimensions.get('window').height < 760;
 
   return (
@@ -234,11 +246,24 @@ export default function SessionScreen() {
 
       {/* Table Area */}
       <View style={styles.tableCenter}>
-        <View style={styles.dealerChipBank}>
-          <Text style={styles.dealerChipBankLabel}>DEALER BANK</Text>
-          <View style={styles.dealerChipBankRow}>
-            {chips.map(value => <Chip key={value} amount={value} size={20} />)}
-          </View>
+        <View testID="hint-panel" style={styles.hintPanel}>
+          <Text style={styles.hintEyebrow}>BLACKJACK COACH</Text>
+          {hintAction && hitStandOdds ? (
+            <>
+              <View style={styles.hintRecommendation}>
+                <Text style={styles.hintLabel}>HINT</Text>
+                <Text testID="hint-action" style={styles.hintAction}>{getActionName(hintAction).toUpperCase()}</Text>
+              </View>
+              <View style={styles.oddsRow}>
+                <View><Text style={styles.oddsLabel}>STAND</Text><Text testID="stand-odds" style={styles.oddsValue}>{hitStandOdds.standWin.toFixed(0)}%</Text></View>
+                <View style={styles.oddsDivider} />
+                <View><Text style={styles.oddsLabel}>HIT ONCE</Text><Text testID="hit-odds" style={styles.oddsValue}>{hitStandOdds.hitWin.toFixed(0)}%</Text></View>
+              </View>
+              <Text style={styles.oddsNote}>ESTIMATED WIN CHANCE</Text>
+            </>
+          ) : (
+            <Text style={styles.hintWaiting}>{phase === 'settled' ? 'ROUND COMPLETE' : 'HINTS APPEAR AFTER DEAL'}</Text>
+          )}
         </View>
         {rules.cardCountingEnabled && (
           <View testID="count-panel" style={styles.countPanel}>
@@ -478,33 +503,35 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   tableCenter: { flex: 1, justifyContent: 'flex-start' },
-  dealerChipBank: {
+  hintPanel: {
     position: 'absolute',
     top: 2,
     left: 14,
     zIndex: 8,
-    paddingHorizontal: 7,
-    paddingTop: 4,
-    paddingBottom: 3,
+    width: 112,
+    minHeight: 48,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(235,209,137,0.6)',
-    backgroundColor: 'rgba(38,20,10,0.78)',
+    borderColor: 'rgba(217,197,143,0.42)',
+    backgroundColor: 'rgba(6,31,14,0.9)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.45,
     shadowRadius: 4,
     elevation: 4,
   },
-  dealerChipBankLabel: {
-    color: '#ebd189',
-    fontFamily: 'Inter_700Bold',
-    fontSize: 6,
-    letterSpacing: 1.1,
-    textAlign: 'center',
-    marginBottom: 1,
-  },
-  dealerChipBankRow: { flexDirection: 'row', gap: 1, alignItems: 'flex-end' },
+  hintEyebrow: { color: '#d9c58f', fontFamily: 'Inter_700Bold', fontSize: 6, letterSpacing: .8 },
+  hintRecommendation: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 },
+  hintLabel: { color: 'rgba(243,240,232,0.52)', fontFamily: 'Inter_600SemiBold', fontSize: 6, letterSpacing: .8 },
+  hintAction: { color: '#f3f0e8', fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: .7 },
+  hintWaiting: { color: 'rgba(243,240,232,0.62)', fontFamily: 'Inter_600SemiBold', fontSize: 7, lineHeight: 10, letterSpacing: .5, marginTop: 7 },
+  oddsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
+  oddsDivider: { width: 1, height: 20, backgroundColor: 'rgba(217,197,143,0.2)' },
+  oddsLabel: { color: 'rgba(243,240,232,0.48)', fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: .5 },
+  oddsValue: { color: '#f3f0e8', fontFamily: 'Inter_700Bold', fontSize: 11, marginTop: 1 },
+  oddsNote: { color: 'rgba(217,197,143,0.5)', fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: .45, marginTop: 4 },
   countPanel: {
     position: 'absolute', top: 2, right: 14, zIndex: 8, width: 104,
     borderRadius: 8, borderWidth: 1, borderColor: 'rgba(217,197,143,0.42)',
