@@ -7,4 +7,4 @@ Gameplay should feel like a polished classic portrait blackjack game: full-scree
 
 **Why:** The user rejected flat top-down layouts even when they contained accurate casino equipment, then explicitly approved a classic full-felt mobile reference with prominent cards and tactile red/blue/green controls.
 
-**How to apply:** Judge future table changes against the current classic mobile-casino direction, not generic dashboard conventions. Preserve visible dealer chips and three playable spots while keeping the active hand dominant.
+**How to apply:** Judge future table changes against the current classic mobile-casino direction, not generic dashboard conventions. Preserve visible dealer chips and three playable positions, but present empty wagers as one cohesive table marking rather than labeled floating placeholders.
