@@ -1,19 +1,70 @@
+import fixture from './strategy-fixtures.json';
 import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
 
 export type Action = 'H' | 'S' | 'D' | 'P' | 'R';
+type StrategyCode = Action | 'd' | 'r' | 'p';
+type StrategyTable = Record<string, StrategyCode[]>;
+type Strategy = { hard: StrategyTable; soft: StrategyTable; pairs: StrategyTable };
+
+const strategies = fixture.strategies as Record<string, Strategy>;
+
+function cardRank(card: string): string | null {
+  const normalized = card.trim().toUpperCase();
+  if (normalized === 'A') return 'A';
+  if (normalized === 'T' || normalized === '10' || normalized === 'J' || normalized === 'Q' || normalized === 'K') return 'T';
+  return /^[2-9]$/.test(normalized) ? normalized : null;
+}
+
+function cardValue(rank: string): number {
+  return rank === 'A' ? 11 : rank === 'T' ? 10 : Number(rank);
+}
+
+function dealerColumn(card: string): number | null {
+  const rank = cardRank(card);
+  if (!rank) return null;
+  return rank === 'A' ? 9 : rank === 'T' ? 8 : Number(rank) - 2;
+}
+
+function strategyFor(rules: TableRules): Strategy {
+  const dealer = rules.dealerHitsSoft17 ? 'h17' : 's17';
+  const das = rules.doubleAfterSplit ? 'yes' : 'no';
+  const double = rules.doubleRule === 'any-two' ? 'all' : rules.doubleRule === 'nine-eleven' ? 'd9' : 'd10';
+  const surrender = rules.surrender === 'late' ? 'ls' : 'ns';
+  const key = `${rules.decks}-${dealer}-${das}-${double}-${surrender}`;
+  const strategy = strategies[key];
+  if (!strategy) throw new Error(`No blackjack strategy fixture exists for ${key}.`);
+  return strategy;
+}
+
+/**
+ * The hand entry model records only a current hand, not a split-hand lineage.
+ * Consequently resplitAces is deliberately not part of this initial-decision
+ * lookup; the fixture's chart dimensions are deck/H17/DAS/double/surrender.
+ */
+function resolveCode(code: StrategyCode, canDouble: boolean, canSurrender: boolean, canSplit: boolean): Action {
+  switch (code) {
+    case 'H': case 'S': return code;
+    case 'D': return canDouble ? 'D' : 'H';
+    case 'd': return canDouble ? 'D' : 'S';
+    case 'R': return canSurrender ? 'R' : 'H';
+    case 'r': return canSurrender ? 'R' : 'S';
+    case 'P': return canSplit ? 'P' : 'H';
+    case 'p': return canSurrender ? 'R' : canSplit ? 'P' : 'H';
+  }
+}
+
+function cell(table: StrategyTable, row: string, dealer: number): StrategyCode | null {
+  return table[row]?.[dealer] ?? null;
+}
 
 export function getSoftTotal(cards: string[]): { total: number, isSoft: boolean } {
   let sum = 0;
   let aces = 0;
-  for (const c of cards) {
-    if (c === 'A') {
-      aces++;
-      sum += 11;
-    } else if (c === 'T') {
-      sum += 10;
-    } else {
-      sum += parseInt(c);
-    }
+  for (const card of cards) {
+    const rank = cardRank(card);
+    if (!rank) continue;
+    sum += cardValue(rank);
+    if (rank === 'A') aces++;
   }
   while (sum > 21 && aces > 0) {
     sum -= 10;
@@ -23,98 +74,37 @@ export function getSoftTotal(cards: string[]): { total: number, isSoft: boolean 
 }
 
 export function getBasicStrategy(playerCards: string[], dealerCard: string, tableRules: TableRules = DEFAULT_TABLE_RULES): Action {
+  const dealer = dealerColumn(dealerCard);
+  const ranks = playerCards.map(cardRank);
+  if (dealer === null || ranks.some((rank) => rank === null) || ranks.length === 0) return 'H';
+
   const rules = normalizeTableRules(tableRules);
-  const dIndex = dealerCard === 'A' ? 9 : dealerCard === 'T' ? 8 : parseInt(dealerCard) - 2; 
-  
-  if (playerCards.length === 2 && playerCards[0] === playerCards[1]) {
-    const pairValue = playerCards[0] === 'A' ? 11 : playerCards[0] === 'T' ? 10 : parseInt(playerCards[0]);
-    const splitTable: Action[][] = [
-      ['P','P','P','P','P','P','H','H','H','H'], // 2
-      ['P','P','P','P','P','P','H','H','H','H'], // 3
-      ['H','H','H','P','P','H','H','H','H','H'], // 4
-      ['D','D','D','D','D','D','D','D','H','H'], // 5
-      ['P','P','P','P','P','H','H','H','H','H'], // 6
-      ['P','P','P','P','P','P','H','H','H','H'], // 7
-      ['P','P','P','P','P','P','P','P','P','P'], // 8
-      ['P','P','P','P','P','S','P','P','S','S'], // 9
-      ['S','S','S','S','S','S','S','S','S','S'], // T
-      ['P','P','P','P','P','P','P','P','P','P'], // A
-    ];
-    let row = pairValue === 11 ? 9 : pairValue - 2;
-    let action = splitTable[row][dIndex];
-    // DAS changes the marginal 2/3 and 4 pairs; H17 makes 9s slightly more aggressive.
-    if (!rules.doubleAfterSplit && (pairValue === 2 || pairValue === 3) && dIndex === 5) action = 'H';
-    if (!rules.doubleAfterSplit && pairValue === 4 && (dIndex === 3 || dIndex === 4)) action = 'H';
-    if (rules.dealerHitsSoft17 && pairValue === 9 && dIndex === 6) action = 'P';
-    if (action === 'P') return 'P';
+  const strategy = strategyFor(rules);
+  const { total, isSoft } = getSoftTotal(ranks as string[]);
+  const initial = ranks.length === 2;
+  const canDouble = initial && (rules.doubleRule === 'any-two' ||
+    (rules.doubleRule === 'nine-eleven' && total >= 9 && total <= 11) ||
+    (rules.doubleRule === 'ten-eleven' && total >= 10 && total <= 11));
+  const canSurrender = initial && rules.surrender === 'late';
+
+  // A ten-value pair includes T, 10, J, Q, and K; pairs take precedence.
+  if (initial && ranks[0] === ranks[1]) {
+    const pairCode = cell(strategy.pairs, `${ranks[0]},${ranks[1]}`, dealer);
+    if (pairCode) return resolveCode(pairCode, canDouble, canSurrender, true);
   }
 
-  const { total, isSoft } = getSoftTotal(playerCards);
-  
-  if (isSoft && playerCards.length === 2) {
-    const nonAce = playerCards[0] === 'A' ? playerCards[1] : playerCards[0];
-    const otherVal = nonAce === 'T' ? 10 : parseInt(nonAce);
-    const softTable: Action[][] = [
-      ['H','H','H','D','D','H','H','H','H','H'], // A,2
-      ['H','H','H','D','D','H','H','H','H','H'], // A,3
-      ['H','H','D','D','D','H','H','H','H','H'], // A,4
-      ['H','H','D','D','D','H','H','H','H','H'], // A,5
-      ['H','D','D','D','D','H','H','H','H','H'], // A,6
-      ['S','D','D','D','D','S','S','H','H','H'], // A,7
-      ['S','S','S','S','S','S','S','S','S','S'], // A,8
-      ['S','S','S','S','S','S','S','S','S','S'], // A,9
-    ];
-    if (otherVal >= 2 && otherVal <= 9) {
-      let action = softTable[otherVal - 2][dIndex];
-      if (rules.dealerHitsSoft17 && total === 18 && dIndex === 1) action = 'D';
-      return allowDouble(action, total, rules) ? action : doubleFallback(total, dIndex);
-    }
-  } else if (isSoft && playerCards.length > 2) {
-    if (total <= 17) return 'H';
-    if (total === 18) return (dIndex >= (rules.dealerHitsSoft17 ? 6 : 7)) ? 'H' : 'S';
-    return 'S';
+  let code: StrategyCode | null;
+  if (isSoft) {
+    // Soft rows are total-dependent after a hit as well as on the first deal.
+    code = total >= 13 && total <= 20 ? cell(strategy.soft, `A,${total - 11}`, dealer) : null;
+  } else {
+    const row = total >= 18 ? '18+' : String(total);
+    code = cell(strategy.hard, row, dealer);
   }
 
-  if (total <= 8) return 'H';
-  if (total >= 17) return 'S';
-  
-  const hardTable: Action[][] = [
-    ['H','D','D','D','D','H','H','H','H','H'], // 9
-    ['D','D','D','D','D','D','D','D','H','H'], // 10
-    ['D','D','D','D','D','D','D','D','D','D'], // 11
-    ['H','H','S','S','S','H','H','H','H','H'], // 12
-    ['S','S','S','S','S','H','H','H','H','H'], // 13
-    ['S','S','S','S','S','H','H','H','H','H'], // 14
-    ['S','S','S','S','S','H','H','H','R','H'], // 15
-    ['S','S','S','S','S','H','H','R','R','R'], // 16
-  ];
-  
-  let action = hardTable[total - 9][dIndex];
-  // Shoe composition makes these common one/two-deck departures worth training.
-  if (rules.decks <= 2 && total === 12 && dealerCard === '4') action = 'S';
-  if (rules.decks === 1 && total === 16 && dealerCard === 'T') action = 'S';
-  if (rules.dealerHitsSoft17 && total === 11 && dealerCard === 'A') action = 'D';
-  if (rules.surrender === 'none' && action === 'R') action = total === 16 && dIndex === 7 ? 'S' : 'H';
-  
-  if (playerCards.length > 2) {
-    if (action === 'D') action = 'H';
-    if (action === 'R') action = 'H';
-  }
-  
-  if (action === 'D' && !allowDouble(action, total, rules)) return doubleFallback(total, dIndex);
-  return action;
-}
-
-function allowDouble(action: Action, total: number, rules: TableRules) {
-  if (action !== 'D') return true;
-  if (rules.doubleRule === 'any-two') return true;
-  if (rules.doubleRule === 'nine-eleven') return total >= 9 && total <= 11;
-  return total >= 10 && total <= 11;
-}
-
-function doubleFallback(total: number, dealerIndex: number): Action {
-  // The only double recommendation that becomes a stand when unavailable is soft 18 vs 2–6.
-  return total === 18 && dealerIndex <= 4 ? 'S' : 'H';
+  // Safe total bounds preserve sensible blackjack behavior outside fixture rows.
+  if (!code) return isSoft ? (total >= 18 ? 'S' : 'H') : (total >= 17 ? 'S' : 'H');
+  return resolveCode(code, canDouble, canSurrender, false);
 }
 
 export function getActionName(action: Action): string {

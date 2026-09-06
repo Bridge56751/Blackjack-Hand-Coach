@@ -1,0 +1,24 @@
+Research completed: 4 targeted searches, then 3 fetches saved locally.
+
+**Core finding — initial decision vs. post-split play**
+- These rules are *not* merely post-split EV rules: whenever an initial choice is `Split`, its EV includes every permitted downstream action (DAS, re-splits, and hand cap). Thus DAS/cap/RSA can in principle alter an **initial pair** recommendation. They do not alter hard/soft non-pair total cells, because split is unavailable there.
+- The ordinary total-dependent chart is inadequate for an already-split hand: post-split state must retain at least `cameFromSplit`, current hand count/cap, whether the pair is A,A, and table permissions. In particular, a split A hand is terminal after one card under the normal restriction—except an A draw can be re-split if RSA is permitted.
+
+**Verified exact cells / rules**
+- Wizard’s displayed 1-deck S17/DAS/no-surrender/peek chart: `A,A = P` against dealer 2–A; the DAS-sensitive displayed pair cells are `2,2=P` 2–7, `3,3=P` 2–7, `4,4=P` 4–6, `6,6=P` 2–6. URL: https://wizardofodds.com/games/blackjack/strategy/calculator/ (saved `research/sources/gapfill-wizard-calculator.md`, lines 82–141).
+- BlackjackInfo’s default shown chart (6D H17, double any 2, DAS, no surrender, peek) is an initial-hand engine (“optimal…with any two given cards against any dealer up card”): `A,A=P` 2–A; `2,2`/`3,3=P` 2–7; `4,4=P` 5–6; `6,6=P` 2–6. URL: https://www.blackjackinfo.com/blackjack-basic-strategy-engine (saved `research/sources/gapfill-blackjackinfo-engine.md`, lines 5–80, 100–110).
+- Wizard rules: split aces normally receive **one card only**; a split A+10 is 21, not blackjack; “usually” re-split up to 4 total hands; RSA is sometimes prohibited. URL: https://wizardofodds.com/games/blackjack/basics/ (saved `research/sources/gapfill-wizard-basics.md`, lines 64–69).
+- Relative to Wizard’s baseline (8D/S17/DAS), rule values are: permission to draw normally after split aces **+0.19%**, RSA **+0.08%**, cap 3 hands **−0.01%**, cap 2 **−0.10%**, no DAS **−0.14%**. Same saved source lines 367–390. These quantify EV effects, but are *not* a proof that each changes a displayed initial cell.
+
+**Conclusion by rule**
+1. **DAS:** definitely changes initial pair strategy (its availability changes split EV); it also governs any double opportunity on non-ace split hands. Treat as a strategy-chart input, not merely post-split behavior.
+2. **One-card-only split aces:** initial `A,A` remains `P` across the cited conventional charts. Operational effect is chiefly post-split termination / no hit or double; exception: if the one card is another Ace and RSA is allowed, re-split is the next action.
+3. **RSA:** raises the initial value of splitting A,A, but conventional chart’s initial A,A cell remains `P` versus every upcard. Its actionable difference is primarily the post-split A,A re-split branch.
+4. **Maximum split hands:** necessarily changes the initial EV of *every potentially re-splittable pair* and the later re-split legality. Exact flip cells for 2/3/4-hand caps cannot be defensibly asserted from these sources: neither fetched public strategy engine exposes RSA/one-card/cap controls, and Wizard supplies aggregate EV rather than cross-rule charts.
+
+**Recommended fixed trainer contract (single-current-hand logger)**
+Use and disclose: **6 decks, S17, 3:2, US peek, double any first two cards, DAS, no surrender, split to four total hands, one-card split aces, RSA allowed.** Score only the *initial two-card decision* (including `Split`); after `Split`, close/advance the logged hand rather than rate hit/stand/double decisions. This is defensible because AA is unambiguously Split on the chosen chart, DAS is baked into initial pair EV, and no unrepresented split-state is silently scored. Add a visible limitation: “Split result branches are not logged; check table RSA and maximum hands.” If later logging post-split hands, add state fields before giving advice.
+
+**Source quality / unresolved conflict**
+- High: Michael Shackleford/Wizard of Odds (named gambling mathematician; explicit rule definitions, charts, and quantified variations). Ken Smith/BlackjackInfo is strong secondary/technical calculator source, explicitly authored and configurable for major rules.
+- Limitation/conflict: Wizard calculator’s visible inputs cover decks, S17/H17, DAS, surrender, and peek—not RSA, split-ace draw restriction, or cap. BlackjackInfo similarly displays no controls for those three. Therefore “exact cap/RSA flip cells” remains unresolved without a rule-complete exact solver or primary simulator output; do not present an exhaustive claim that only AA is affected.

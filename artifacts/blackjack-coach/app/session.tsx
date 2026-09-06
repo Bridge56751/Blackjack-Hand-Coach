@@ -225,7 +225,7 @@ export default function SessionScreen() {
               </View>
               {!feedback.isCorrect && (
                 <Text style={[styles.feedbackSub, { color: colors.foreground }]}>
-                  Basic strategy says to {getActionName(feedback.correctAction)}.
+                  For these selected rules, basic strategy says to {getActionName(feedback.correctAction)}.
                 </Text>
               )}
               <TouchableOpacity 

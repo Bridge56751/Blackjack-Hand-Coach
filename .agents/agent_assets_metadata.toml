@@ -1,0 +1,30 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "sRdGfVo9z0MA1nCycZvQI"
+uri = "file://research/notes.md"
+type = "text"
+title = "Blackjack Strategy Audit Notes"
+description = "Research plan and running source-backed findings for the grading engine audit."
+logical_id = "6a4a5214-7e48-4713-b0b0-9b6670ceaa64"
+content_hash = "sha256:0ef961b0221829aee5913b41581f1afea543bb7f674f13d2750967088f96e893"
+size = 2056
+mtime_ms = 1788672988188
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:b4279030-e79e-4db8-84a9-555b2a738f23/6a4a5214-7e48-4713-b0b0-9b6670ceaa64/af84f6a3-2c40-430b-b3bb-8ccf8f7c1866"
+storage_version_token = "1788672992116830"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "g0nXNVBAL0oxK0tHNwUL6"
+uri = "file://research/blackjack-strategy-audit.md"
+type = "text"
+title = "Blackjack Strategy Accuracy Audit"
+description = "Source-backed audit of the app’s grading rules, validation method, assumptions, and limitations."
+logical_id = "6b0f2e10-0cc2-41e0-b6aa-7dec5a9fe39f"
+content_hash = "sha256:9a6fe2bcf9fd4209bd3fb2919190249c06a3dc2e3a37851e75ac61566fd7a591"
+size = 9354
+mtime_ms = 1788673525721
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:b4279030-e79e-4db8-84a9-555b2a738f23/6b0f2e10-0cc2-41e0-b6aa-7dec5a9fe39f/3f7d7393-6e0a-4d0b-aadd-9f49e9c2aab0"
+storage_version_token = "1788673629981550"
+content_type = "text/markdown"
