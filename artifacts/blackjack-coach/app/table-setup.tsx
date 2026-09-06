@@ -1,7 +1,7 @@
 import React, { ReactNode, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
 import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
@@ -19,9 +19,13 @@ const presetDescriptions: Record<string, string> = {
 export default function TableSetupScreen() {
   const colors = useColors();
   const router = useRouter();
+  const params = useLocalSearchParams<{ accuracyMode?: string }>();
   const insets = useSafeAreaInsets();
   const { startSession } = useCoach();
-  const [rules, setRules] = useState<TableRules>(normalizeTableRules(TABLE_PRESETS[0]));
+  const [rules, setRules] = useState<TableRules>(() => normalizeTableRules({
+    ...TABLE_PRESETS[0],
+    accuracyMode: params.accuracyMode === 'hilo-index' ? 'hilo-index' : 'basic',
+  }));
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const actionHeight = 76 + Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 12);
 

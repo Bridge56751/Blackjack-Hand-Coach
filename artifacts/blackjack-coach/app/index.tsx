@@ -145,6 +145,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [onboardingReady, setOnboardingReady] = useState(false);
+  const [countAdjustedAccuracy, setCountAdjustedAccuracy] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -165,7 +166,10 @@ export default function DashboardScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push('/table-setup');
+    router.push({
+      pathname: '/table-setup',
+      params: { accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic' },
+    });
   };
 
   const overallDecisions = history.flatMap(s => s.hands.flatMap(h => h.decisions));
@@ -209,6 +213,37 @@ export default function DashboardScreen() {
                   <Feather name="arrow-right" size={20} color="#000" />
                 </AnimatedPressable>
               </View>
+              <Pressable
+                testID="home-card-counting-toggle"
+                accessibilityRole="switch"
+                accessibilityState={{ checked: countAdjustedAccuracy }}
+                accessibilityLabel="Grade play using card counting"
+                onPress={() => {
+                  setCountAdjustedAccuracy(value => !value);
+                  if (Platform.OS !== 'web') {
+                    Haptics.selectionAsync();
+                  }
+                }}
+                style={[styles.countAccuracyToggle, countAdjustedAccuracy && styles.countAccuracyToggleActive]}
+              >
+                <View style={styles.countAccuracyIcon}>
+                  <MaterialCommunityIcons name="cards-playing-outline" size={21} color="#D4AF37" />
+                </View>
+                <View style={styles.countAccuracyCopy}>
+                  <Text style={styles.countAccuracyTitle}>CARD COUNTING</Text>
+                  <Text style={styles.countAccuracyDetail}>
+                    {countAdjustedAccuracy ? 'Accuracy uses Hi-Lo index plays' : 'Accuracy uses basic strategy'}
+                  </Text>
+                  {countAdjustedAccuracy && (
+                    <Text style={styles.countAccuracyDisclaimer}>
+                      Requires full basic strategy knowledge. Every decision is graded at the Hi-Lo count when you act.
+                    </Text>
+                  )}
+                </View>
+                <View style={[styles.toggleTrack, countAdjustedAccuracy && styles.toggleTrackActive]}>
+                  <View style={[styles.toggleThumb, countAdjustedAccuracy && styles.toggleThumbActive]} />
+                </View>
+              </Pressable>
             </View>
 
             <View style={styles.statsContainer}>
@@ -355,6 +390,81 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#000000',
     letterSpacing: 0.5,
+  },
+  countAccuracyToggle: {
+    width: '100%',
+    marginTop: 22,
+    minHeight: 66,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(0,0,0,0.24)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  countAccuracyToggleActive: {
+    borderColor: 'rgba(212,175,55,0.72)',
+    backgroundColor: 'rgba(212,175,55,0.12)',
+  },
+  countAccuracyIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212,175,55,0.12)',
+    marginRight: 11,
+  },
+  countAccuracyCopy: {
+    flex: 1,
+  },
+  countAccuracyTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    color: '#FFFFFF',
+    letterSpacing: 1.2,
+    marginBottom: 3,
+  },
+  countAccuracyDetail: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  countAccuracyDisclaimer: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    lineHeight: 15,
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(212,175,55,0.28)',
+  },
+  toggleTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    padding: 3,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    marginLeft: 10,
+  },
+  toggleTrackActive: {
+    backgroundColor: '#D4AF37',
+  },
+  toggleThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    transform: [{ translateX: 0 }],
+  },
+  toggleThumbActive: {
+    backgroundColor: '#092F1D',
+    transform: [{ translateX: 18 }],
   },
   statsContainer: {
     flexDirection: 'row',
