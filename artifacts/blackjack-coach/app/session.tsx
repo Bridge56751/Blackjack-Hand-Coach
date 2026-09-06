@@ -16,6 +16,7 @@ import { estimateHitStandOdds } from '@/lib/odds';
 
 type Phase = 'betting' | 'dealing' | 'insurance' | 'playing' | 'settled';
 const chips = [5, 25, 100, 250, 500];
+const chipRackCurve = [0, 10, 15, 10, 0];
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const buzz = () => { if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
@@ -377,13 +378,35 @@ export default function SessionScreen() {
       <View style={[styles.bottomDock, { paddingBottom: Math.max(insets.bottom, 10) }]}>
          {phase === 'betting' && (
             <View style={styles.bettingControls}>
-               <View style={styles.chipRack}>
-                  {chips.map(amount => (
-                     <TouchableOpacity key={amount} testID={`chip-${amount}`} onPress={() => addChip(amount)} disabled={totalBet + amount > bankroll}>
-                        <Chip amount={amount} size={48} disabled={totalBet + amount > bankroll} />
-                     </TouchableOpacity>
-                  ))}
-               </View>
+                <View style={[styles.chipRack, isCompactTable && styles.chipRackCompact]}>
+                   <View pointerEvents="none" style={styles.chipRackArc} />
+                   <View pointerEvents="none" style={styles.chipRackLabel}>
+                     <Text style={styles.chipRackLabelText}>CHOOSE YOUR CHIP</Text>
+                   </View>
+                   {chips.map((amount, index) => {
+                     const unavailable = totalBet + amount > bankroll;
+                     return (
+                       <TouchableOpacity
+                         key={amount}
+                         testID={`chip-${amount}`}
+                         accessibilityLabel={`Add $${amount} chip`}
+                         accessibilityState={{ disabled: unavailable }}
+                         activeOpacity={0.76}
+                         onPress={() => addChip(amount)}
+                         disabled={unavailable}
+                         style={[
+                           styles.chipRackSlot,
+                           { marginBottom: chipRackCurve[index] },
+                           isCompactTable && styles.chipRackSlotCompact,
+                         ]}
+                       >
+                         <View style={styles.chipRackShadow}>
+                           <Chip amount={amount} size={isCompactTable ? 52 : 58} disabled={unavailable} />
+                         </View>
+                       </TouchableOpacity>
+                     );
+                   })}
+                </View>
                <View style={styles.actionGrid}>
                   <View style={styles.actionRowPrimary}>
                      <ActionButton id="btn-clear" label="Clear" color="grey" icon={<Feather name="x" size={24} color="#fff" />} onPress={() => setBets(old => old.map((b, i) => i === selectedSpot ? 0 : b))} />
@@ -670,9 +693,58 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold', color: '#ebd189', fontSize: 12, marginTop: 4, textTransform: 'uppercase',
     textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
-  bottomDock: { width: '100%', paddingHorizontal: 16, paddingTop: 10, backgroundColor: 'transparent' },
-  bettingControls: { alignItems: 'center', paddingTop: 10 },
-  chipRack: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 20 },
+   bottomDock: { width: '100%', paddingHorizontal: 16, paddingTop: 6, backgroundColor: 'transparent' },
+   bettingControls: { alignItems: 'center', paddingTop: 0 },
+   chipRack: {
+     width: '100%',
+     height: 88,
+     maxWidth: 370,
+     flexDirection: 'row',
+     justifyContent: 'space-between',
+     alignItems: 'flex-end',
+     paddingHorizontal: 4,
+     marginBottom: 10,
+     position: 'relative',
+   },
+   chipRackCompact: { height: 76, marginBottom: 6 },
+   chipRackArc: {
+     position: 'absolute',
+     left: 10,
+     right: 10,
+     bottom: 5,
+     height: 58,
+     borderTopWidth: 1,
+     borderColor: 'rgba(226,190,104,0.58)',
+     borderTopLeftRadius: 180,
+     borderTopRightRadius: 180,
+     backgroundColor: 'rgba(4,30,13,0.2)',
+   },
+   chipRackLabel: {
+     position: 'absolute',
+     alignSelf: 'center',
+     top: 2,
+     paddingHorizontal: 9,
+     paddingVertical: 2,
+     borderRadius: 8,
+     backgroundColor: '#0d3b1d',
+   },
+   chipRackLabelText: { fontFamily: 'Inter_700Bold', color: 'rgba(235,209,137,0.76)', fontSize: 7, letterSpacing: 1.3 },
+   chipRackSlot: {
+     width: 62,
+     height: 72,
+     alignItems: 'center',
+     justifyContent: 'flex-end',
+     zIndex: 2,
+   },
+   chipRackSlotCompact: { width: 56, height: 62 },
+   chipRackShadow: {
+     borderRadius: 36,
+     shadowColor: '#041409',
+     shadowOffset: { width: 0, height: 5 },
+     shadowOpacity: 0.72,
+     shadowRadius: 3,
+     elevation: 8,
+   },
   actionGrid: { alignItems: 'center', minHeight: 80, justifyContent: 'center' },
   actionRowPrimary: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   actionRowSecondary: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 12 },
