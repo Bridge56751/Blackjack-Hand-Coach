@@ -5,6 +5,7 @@ import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
 
 export type Decision = {
   id: string;
+  spot?: number;
   playerCards: string[];
   dealerCard: string;
   chosen: Action;
@@ -21,7 +22,10 @@ export type HandRecord = {
   insuranceBet?: number;
   insuranceNet?: number;
   dealerCards?: string[];
-  playerHands?: { cards: string[]; bet: number; outcome: string; netChange: number }[];
+  playerHands?: { cards: string[]; bet: number; outcome: string; netChange: number; spot?: number; label?: string }[];
+  /** Optional simultaneous-table metadata; older persisted records intentionally omit it. */
+  spotBets?: number[];
+  roundLabel?: string;
 };
 
 export type Session = {

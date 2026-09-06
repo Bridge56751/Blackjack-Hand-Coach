@@ -1,4 +1,4 @@
-import { canDouble, canSplit, createShoe, dealerShouldHit, handTotal, settleHand, settleInsurance } from '../lib/game.ts';
+import { canDouble, canSplit, createShoe, dealInitialRound, dealerShouldHit, handTotal, settleHand, settleInsurance } from '../lib/game.ts';
 import type { GameHand } from '../lib/game.ts';
 import { DEFAULT_TABLE_RULES } from '../lib/rules.ts';
 let cardId = 0;
@@ -15,6 +15,9 @@ ok(!canSplit(hand(['8']), DEFAULT_TABLE_RULES, 1), 'incomplete dealt hand cannot
 ok(createShoe(6).length === 312 && createShoe(1).length === 52, 'shoe counts');
 ok(settleInsurance(5, true).credit === 15 && settleInsurance(5, true).net === 10, 'insurance pays 2:1');
 ok(settleInsurance(5, false).credit === 0 && settleInsurance(5, false).net === -5, 'losing insurance stake');
+const ordered = dealInitialRound(createShoe(1), [5, 0, 25], () => 'x');
+ok(ordered.hands.length === 2 && ordered.events.map(e => e.kind === 'player' ? e.spot : 'D').join(',') === '1,3,D,1,3,D', 'multi-spot round robin deal order');
+ok(ordered.hands.reduce((sum, item) => sum + item.bet, 0) === 30 && settleInsurance(15, true).net === 30, 'aggregate multi-spot insurance');
 const simultaneousBlackjacksMainCredit = settleHand(hand(['A','K']), [c('A'),c('T')]).credit;
 const simultaneousBlackjacksInsurance = settleInsurance(5, true);
 ok(simultaneousBlackjacksMainCredit + simultaneousBlackjacksInsurance.credit - 10 - 5 === 10, 'player and dealer blackjack with insurance');

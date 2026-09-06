@@ -45,14 +45,14 @@ export default function ReportScreen() {
               </View>
               <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}% Accuracy</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} / {stats.total} correct decisions</Text>
-              <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} hands played</Text>
+               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} rounds played</Text>
                {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${session.bankrollStart ?? 1000} → ${session.bankrollEnd ?? session.bankrollStart ?? 1000}</Text>}
                <Text style={[styles.tableName, { color: colors.foreground }]}>{session.rules?.name ?? 'Vegas 6 Deck'}</Text>
                <View style={[styles.rulesPill, { borderColor: colors.border }]}><Text style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)}</Text></View>
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
-            {session.hands.some(hand => hand.playerHands?.length) && <View style={[styles.roundSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>{session.hands.map((hand, index) => <Text key={hand.id} style={[styles.roundText, { color: colors.mutedForeground }]}>Hand {index + 1} · ${hand.bet ?? 0} · {hand.netChange && hand.netChange > 0 ? '+' : ''}{hand.netChange ?? 0} {hand.playerHands?.length ? `(${hand.playerHands.map(item => item.outcome).join(' / ')})` : ''}{hand.insuranceBet ? ` · Ins: ${hand.insuranceNet && hand.insuranceNet > 0 ? '+' : ''}${hand.insuranceNet}` : ''}</Text>)}</View>}
+            {session.hands.some(hand => hand.playerHands?.length) && <View style={[styles.roundSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>{session.hands.map((hand, index) => <Text key={hand.id} style={[styles.roundText, { color: colors.mutedForeground }]}>Round {index + 1} · ${hand.bet ?? 0} · {hand.netChange && hand.netChange > 0 ? '+' : ''}{hand.netChange ?? 0} {hand.playerHands?.length ? `(${hand.playerHands.map(item => `${item.spot ? `Spot ${item.spot}: ` : ''}${item.outcome}`).join(' / ')})` : ''}{hand.insuranceBet ? ` · Table ins: ${hand.insuranceNet && hand.insuranceNet > 0 ? '+' : ''}${hand.insuranceNet}` : ''}</Text>)}</View>}
             {mistakes.length === 0 && (
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="award" size={40} color={colors.primary} style={{ marginBottom: 12 }} />
@@ -66,7 +66,7 @@ export default function ReportScreen() {
           <View style={[styles.mistakeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.scenarioRow}>
               <View style={styles.scenarioHalf}>
-                <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>Dealer Up-Card</Text>
+                <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>{item.spot ? `Spot ${item.spot} · Dealer Up-Card` : 'Dealer Up-Card'}</Text>
                 <View style={[styles.miniCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
                   <Text style={[styles.miniCardText, { color: colors.foreground }]}>{item.dealerCard}</Text>
                 </View>

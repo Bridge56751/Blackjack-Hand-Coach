@@ -30,7 +30,7 @@ export function Chip({ amount, size = 52, style, disabled }: { amount: number, s
         <View style={[styles.chipDashed, { borderColor: colors.strip, width: size * 0.88, height: size * 0.88, borderRadius: size * 0.44, borderWidth: Math.max(2, size * 0.08) }]} />
         <View style={[styles.chipInner, { width: size * 0.56, height: size * 0.56, borderRadius: size * 0.28 }]}>
           <Text style={[styles.chipText, { fontSize: size * 0.22, color: colors.face }]}>
-            {amount >= 1000 ? `${amount/1000}k` : amount}
+             ${amount >= 1000 ? `${amount/1000}k` : amount}
           </Text>
         </View>
       </View>

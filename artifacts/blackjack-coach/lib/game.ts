@@ -3,7 +3,7 @@ import type { TableRules } from './rules';
 export type Suit = '♠' | '♥' | '♦' | '♣';
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | 'T' | 'J' | 'Q' | 'K';
 export type Card = { rank: Rank; suit: Suit; id: string };
-export type GameHand = { id: string; cards: Card[]; bet: number; doubled: boolean; surrendered: boolean; splitAces: boolean; fromSplit: boolean; outcome?: HandOutcome };
+export type GameHand = { id: string; cards: Card[]; bet: number; doubled: boolean; surrendered: boolean; splitAces: boolean; fromSplit: boolean; spot?: number; outcome?: HandOutcome };
 export type HandOutcome = 'Win' | 'Loss' | 'Push' | 'Blackjack' | 'Surrender' | 'Bust';
 
 const ranks: Rank[] = ['A','2','3','4','5','6','7','8','9','T','J','Q','K'];
@@ -26,6 +26,24 @@ export function shuffle<T>(items: T[]): T[] {
 export function draw(shoe: Card[]): { card: Card; shoe: Card[] } {
   if (!shoe.length) throw new Error('The shoe is empty.');
   return { card: shoe[0], shoe: shoe.slice(1) };
+}
+/** Initial blackjack dealing order for any number of occupied player spots. */
+export function dealInitialRound(shoe: Card[], spotBets: number[], makeId: () => string) {
+  let remaining = shoe;
+  const hands = spotBets.map((bet, index): GameHand | null => bet > 0 ? {
+    id: makeId(), cards: [], bet, doubled: false, surrendered: false, splitAces: false, fromSplit: false, spot: index + 1
+  } : null);
+  const events: { kind: 'player' | 'dealer'; spot?: number; card: Card; hidden?: boolean }[] = [];
+  for (let pass = 0; pass < 2; pass++) {
+    hands.forEach((hand, index) => {
+      if (!hand) return;
+      const next = draw(remaining); remaining = next.shoe;
+      hand.cards.push(next.card); events.push({ kind: 'player', spot: index + 1, card: next.card });
+    });
+    const next = draw(remaining); remaining = next.shoe;
+    events.push({ kind: 'dealer', card: next.card, hidden: pass === 1 });
+  }
+  return { hands: hands.filter((hand): hand is GameHand => !!hand), dealer: events.filter(e => e.kind === 'dealer').map(e => e.card), shoe: remaining, events };
 }
 export function handTotal(cards: Card[]) {
   let total = cards.reduce((sum, card) => sum + cardValue(card), 0);
