@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Action } from './strategy';
 import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
@@ -52,6 +52,9 @@ export type Session = {
 type CoachContextType = {
   history: Session[];
   activeSession: Session | null;
+  preferredRules: TableRules;
+  preferredRulesReady: boolean;
+  updatePreferredRules: (update: TableRules | ((current: TableRules) => TableRules)) => void;
   startSession: (rules?: TableRules) => void;
   endSession: (bankrollEnd?: number) => string | null;
   recordHand: (hand: HandRecord) => void;
@@ -64,24 +67,49 @@ const CoachContext = createContext<CoachContextType | null>(null);
 export function CoachProvider({ children }: { children: ReactNode }) {
   const [history, setHistory] = useState<Session[]>([]);
   const [activeSession, setActiveSession] = useState<Session | null>(null);
+  const [preferredRules, setPreferredRules] = useState<TableRules>(DEFAULT_TABLE_RULES);
+  const [preferredRulesReady, setPreferredRulesReady] = useState(false);
+  const preferredRulesRef = useRef<TableRules>(DEFAULT_TABLE_RULES);
+  const preferenceWriteRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     AsyncStorage.getItem('blackjack_history').then(data => {
       if (data) setHistory(JSON.parse(data).map((session: Session) => ({ ...session, rules: normalizeTableRules(session.rules) })));
     });
+    AsyncStorage.getItem('blackjack_preferred_rules')
+      .then(data => {
+        const stored = data ? normalizeTableRules(JSON.parse(data)) : DEFAULT_TABLE_RULES;
+        preferredRulesRef.current = stored;
+        setPreferredRules(stored);
+      })
+      .catch(() => {
+        preferredRulesRef.current = DEFAULT_TABLE_RULES;
+        setPreferredRules(DEFAULT_TABLE_RULES);
+      })
+      .finally(() => setPreferredRulesReady(true));
   }, []);
+
+  const updatePreferredRules = (update: TableRules | ((current: TableRules) => TableRules)) => {
+    const next = typeof update === 'function' ? update(preferredRulesRef.current) : update;
+    const normalized = normalizeTableRules(next);
+    preferredRulesRef.current = normalized;
+    setPreferredRules(normalized);
+    preferenceWriteRef.current = preferenceWriteRef.current
+      .catch(() => undefined)
+      .then(() => AsyncStorage.setItem('blackjack_preferred_rules', JSON.stringify(normalized)));
+  };
 
   const saveHistory = async (newHistory: Session[]) => {
     setHistory(newHistory);
     await AsyncStorage.setItem('blackjack_history', JSON.stringify(newHistory));
   };
 
-  const startSession = (rules: TableRules = DEFAULT_TABLE_RULES) => {
+  const startSession = (rules?: TableRules) => {
     setActiveSession({
       id: Date.now().toString(),
       date: new Date().toISOString(),
       hands: [],
-      rules: normalizeTableRules(rules),
+      rules: normalizeTableRules(rules ?? preferredRulesRef.current),
       bankrollStart: 1000,
     });
   };
@@ -120,7 +148,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <CoachContext.Provider value={{ history, activeSession, startSession, endSession, recordHand, addBankroll, clearHistory }}>
+    <CoachContext.Provider value={{ history, activeSession, preferredRules, preferredRulesReady, updatePreferredRules, startSession, endSession, recordHand, addBankroll, clearHistory }}>
       {children}
     </CoachContext.Provider>
   );

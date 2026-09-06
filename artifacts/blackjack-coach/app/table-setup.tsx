@@ -1,10 +1,10 @@
-import React, { ReactNode, useMemo, useState } from 'react';
+import React, { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
-import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
+import { DEFAULT_TABLE_RULES, DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
 import { useColors } from '@/hooks/useColors';
 
 const deckOptions: TableRules['decks'][] = [1, 2, 4, 6, 8];
@@ -21,13 +21,24 @@ export default function TableSetupScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ accuracyMode?: string }>();
   const insets = useSafeAreaInsets();
-  const { startSession } = useCoach();
-  const [rules, setRules] = useState<TableRules>(() => normalizeTableRules({
-    ...TABLE_PRESETS[0],
-    accuracyMode: params.accuracyMode === 'hilo-index' ? 'hilo-index' : 'basic',
-  }));
+  const { startSession, preferredRules, preferredRulesReady } = useCoach();
+  const [rules, setRules] = useState<TableRules>(DEFAULT_TABLE_RULES);
+  const [rulesReady, setRulesReady] = useState(false);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const actionHeight = 76 + Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 12);
+
+  useEffect(() => {
+    if (!preferredRulesReady || rulesReady) return;
+    setRules(normalizeTableRules({
+      ...preferredRules,
+      accuracyMode: params.accuracyMode === 'hilo-index'
+        ? 'hilo-index'
+        : params.accuracyMode === 'basic'
+          ? 'basic'
+          : preferredRules.accuracyMode,
+    }));
+    setRulesReady(true);
+  }, [params.accuracyMode, preferredRules, preferredRulesReady, rulesReady]);
 
   const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) =>
     setRules(current => {
@@ -37,7 +48,11 @@ export default function TableSetupScreen() {
       }
       return next;
     });
-  const selectPreset = (preset: TableRules) => setRules(normalizeTableRules(preset));
+  const selectPreset = (preset: TableRules) => setRules(normalizeTableRules({
+    ...preset,
+    accuracyMode: rules.accuracyMode,
+    cardCountingEnabled: rules.cardCountingEnabled
+  }));
   const start = () => {
     startSession(rules);
     router.replace('/session');
@@ -51,6 +66,10 @@ export default function TableSetupScreen() {
     rules.cardCountingEnabled ? 'Live Hi-Lo counter enabled' : 'Card counting display off',
     rules.accuracyMode === 'hilo-index' ? 'Graded on Hi-Lo Index play' : 'Graded on Basic Strategy',
   ], [rules]);
+
+  if (!rulesReady) {
+    return <View style={[styles.page, { backgroundColor: colors.background }]} />;
+  }
 
   return (
     <View style={[styles.page, { backgroundColor: colors.background }]}>

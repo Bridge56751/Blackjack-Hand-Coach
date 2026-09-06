@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
 import { Stack, useRouter } from 'expo-router';
@@ -14,6 +14,7 @@ import Animated, {
   interpolate 
 } from 'react-native-reanimated';
 import { getOnboardingRecord } from '@/lib/onboarding';
+import { BottomNav } from '@/components/BottomNav';
 
 const AnimatedPressable = ({ onPress, style, children, testID }: any) => {
   const scale = useSharedValue(1);
@@ -94,58 +95,14 @@ function HeroCards() {
   );
 }
 
-const getGradeColor = (grade: string) => {
-  if (grade.startsWith('A')) return '#D4AF37';
-  if (grade === 'B') return '#4A90E2';
-  if (grade === 'C') return '#F5A623';
-  return '#E63946';
-};
-
-const SessionRow = ({ item, index, router }: any) => {
-  const stats = getSessionStats(item);
-  const gradeColor = getGradeColor(stats.grade);
-  
-  const enterVal = useSharedValue(0);
-  useEffect(() => {
-    enterVal.value = withDelay(100 + index * 50, withSpring(1, { damping: 15, stiffness: 150 }));
-  }, [index, enterVal]);
-
-  const entranceStyle = useAnimatedStyle(() => ({
-    opacity: enterVal.value,
-    transform: [{ translateY: interpolate(enterVal.value, [0, 1], [20, 0]) }]
-  }));
-
-  return (
-    <Animated.View style={entranceStyle}>
-      <AnimatedPressable
-        style={styles.sessionRow}
-        onPress={() => router.push(`/report/${item.id}`)}
-      >
-        <View>
-          <Text style={styles.sessionDateText}>
-            {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-          </Text>
-          <Text style={styles.sessionHandsText}>{item.hands.length} hands · {item.rules?.decks ?? 6}D {item.rules?.dealerHitsSoft17 ? 'H17' : 'S17'}</Text>
-        </View>
-        <View style={styles.sessionRight}>
-          <Text style={styles.sessionAccText}>{Math.round(stats.accuracy * 100)}%</Text>
-          <View style={[styles.sessionGradeBox, { backgroundColor: gradeColor }]}>
-            <Text style={[styles.sessionGradeText, { color: stats.grade.startsWith('A') ? '#000' : '#FFF' }]}>{stats.grade}</Text>
-          </View>
-          <Feather name="chevron-right" size={20} color="rgba(255,255,255,0.4)" />
-        </View>
-      </AnimatedPressable>
-    </Animated.View>
-  );
-};
-
 export default function DashboardScreen() {
-  const { history } = useCoach();
+  const { history, preferredRules, preferredRulesReady } = useCoach();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [onboardingReady, setOnboardingReady] = useState(false);
-  const [countAdjustedAccuracy, setCountAdjustedAccuracy] = useState(false);
+  const [countAccuracyOverride, setCountAccuracyOverride] = useState<boolean | null>(null);
+  const countAdjustedAccuracy = countAccuracyOverride ?? preferredRules.accuracyMode === 'hilo-index';
 
   useEffect(() => {
     let mounted = true;
@@ -178,7 +135,7 @@ export default function DashboardScreen() {
   const acc = totalD === 0 ? 0 : Math.round((correctD / totalD) * 100);
   const totalHands = history.reduce((sum, s) => sum + s.hands.length, 0);
 
-  if (!onboardingReady) {
+  if (!onboardingReady || !preferredRulesReady) {
     return <View style={[styles.container, { backgroundColor: colors.background }]} />;
   }
 
@@ -190,90 +147,83 @@ export default function DashboardScreen() {
       <View style={styles.tableRing1} pointerEvents="none" />
       <View style={styles.tableRing2} pointerEvents="none" />
 
-      <FlatList
-        data={history}
-        keyExtractor={item => item.id}
+      <ScrollView
         contentContainerStyle={[
           styles.listContent,
-          { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 24) + (Platform.OS === 'web' ? 34 : 0) }
+          { paddingTop: insets.top + 24, paddingBottom: Math.max(insets.bottom, 24) + (Platform.OS === 'web' ? 34 : 0) + 80 }
         ]}
         showsVerticalScrollIndicator={false}
-        ListHeaderComponent={
-          <>
-            <View style={styles.brandContainer}>
-              <Text style={styles.brandTitle}>BLACKJACK</Text>
-              <Text style={styles.brandSubtitle}>COACH</Text>
-            </View>
-            
-            <View style={styles.heroSection}>
-              <HeroCards />
-              <View style={styles.ctaWrapper}>
-                <AnimatedPressable style={styles.ctaBtn} onPress={handleStart} testID="start-session-btn">
-                  <Text style={styles.ctaText}>TAKE A SEAT</Text>
-                  <Feather name="arrow-right" size={20} color="#000" />
-                </AnimatedPressable>
-              </View>
-              <Pressable
-                testID="home-card-counting-toggle"
-                accessibilityRole="switch"
-                accessibilityState={{ checked: countAdjustedAccuracy }}
-                accessibilityLabel="Grade play using card counting"
-                onPress={() => {
-                  setCountAdjustedAccuracy(value => !value);
-                  if (Platform.OS !== 'web') {
-                    Haptics.selectionAsync();
-                  }
-                }}
-                style={[styles.countAccuracyToggle, countAdjustedAccuracy && styles.countAccuracyToggleActive]}
-              >
-                <View style={styles.countAccuracyIcon}>
-                  <MaterialCommunityIcons name="cards-playing-outline" size={21} color="#D4AF37" />
-                </View>
-                <View style={styles.countAccuracyCopy}>
-                  <Text style={styles.countAccuracyTitle}>CARD COUNTING</Text>
-                  <Text style={styles.countAccuracyDetail}>
-                    {countAdjustedAccuracy ? 'Accuracy uses Hi-Lo index plays' : 'Accuracy uses basic strategy'}
-                  </Text>
-                  {countAdjustedAccuracy && (
-                    <Text style={styles.countAccuracyDisclaimer}>
-                      Requires full basic strategy knowledge. Every decision is graded at the Hi-Lo count when you act.
-                    </Text>
-                  )}
-                </View>
-                <View style={[styles.toggleTrack, countAdjustedAccuracy && styles.toggleTrackActive]}>
-                  <View style={[styles.toggleThumb, countAdjustedAccuracy && styles.toggleThumbActive]} />
-                </View>
-              </Pressable>
-            </View>
+      >
+        <View style={styles.brandContainer}>
+          <Text style={styles.brandTitle}>BLACKJACK</Text>
+          <Text style={styles.brandSubtitle}>COACH</Text>
+        </View>
 
-            <View style={styles.statsContainer}>
-               <View style={styles.statBox}>
-                  <Text style={styles.statLabel}>OVERALL ACCURACY</Text>
-                  <Text style={styles.statValue}>{acc}%</Text>
-               </View>
-               <View style={styles.statDivider} />
-               <View style={styles.statBox}>
-                  <Text style={styles.statLabel}>HANDS LOGGED</Text>
-                  <Text style={styles.statValue}>{totalHands}</Text>
-               </View>
-            </View>
-
-            <Text style={styles.sectionTitle}>TABLE HISTORY</Text>
-            {history.length === 0 && (
-              <View style={styles.emptyState}>
-                <View style={styles.emptyIconContainer}>
-                  <MaterialCommunityIcons name="cards" size={32} color="rgba(255,255,255,0.6)" />
-                </View>
-                <Text style={styles.emptyText}>The table is open</Text>
-                <Text style={styles.emptySub}>Take a seat and play your first session to receive personalized feedback.</Text>
+        <View style={styles.heroSection}>
+          <HeroCards />
+          <View style={styles.ctaWrapper}>
+            <AnimatedPressable style={styles.ctaBtn} onPress={handleStart} testID="start-session-btn">
+              <Text style={styles.ctaText}>TAKE A SEAT</Text>
+              <Feather name="arrow-right" size={20} color="#000" />
+            </AnimatedPressable>
+          </View>
+          <Pressable
+            testID="home-card-counting-toggle"
+            accessibilityRole="switch"
+            accessibilityState={{ checked: countAdjustedAccuracy }}
+            accessibilityLabel="Grade play using card counting"
+            onPress={() => {
+              setCountAccuracyOverride(!countAdjustedAccuracy);
+              if (Platform.OS !== 'web') {
+                Haptics.selectionAsync();
+              }
+            }}
+            style={[styles.countAccuracyToggle, countAdjustedAccuracy && styles.countAccuracyToggleActive]}
+          >
+            <View style={styles.countAccuracyMainRow}>
+              <View style={styles.countAccuracyIcon}>
+                <MaterialCommunityIcons name="cards-playing-outline" size={21} color="#D4AF37" />
               </View>
+              <View style={styles.countAccuracyCopy}>
+                <Text style={styles.countAccuracyTitle}>CARD COUNTING</Text>
+                <Text style={styles.countAccuracyDetail}>
+                  {countAdjustedAccuracy ? 'Accuracy uses Hi-Lo index plays' : 'Accuracy uses basic strategy'}
+                </Text>
+              </View>
+              <View style={[styles.toggleTrack, countAdjustedAccuracy && styles.toggleTrackActive]}>
+                <View style={[styles.toggleThumb, countAdjustedAccuracy && styles.toggleThumbActive]} />
+              </View>
+            </View>
+            {countAdjustedAccuracy && (
+              <Text style={styles.countAccuracyDisclaimer}>
+                Requires full basic strategy knowledge. Every decision is graded at the Hi-Lo count when you act.
+              </Text>
             )}
-          </>
-        }
-        renderItem={({ item, index }) => (
-          <SessionRow item={item} index={index} router={router} />
+          </Pressable>
+        </View>
+
+        <View style={styles.statsContainer}>
+           <View style={styles.statBox}>
+              <Text style={styles.statLabel}>OVERALL ACCURACY</Text>
+              <Text style={styles.statValue}>{acc}%</Text>
+           </View>
+           <View style={styles.statDivider} />
+           <View style={styles.statBox}>
+              <Text style={styles.statLabel}>HANDS LOGGED</Text>
+              <Text style={styles.statValue}>{totalHands}</Text>
+           </View>
+        </View>
+
+        {history.length > 0 && (
+          <View style={[styles.recentSummary, { borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
+            <Text style={[styles.recentLabel, { color: 'rgba(255, 255, 255, 0.6)' }]}>RECENT SESSION</Text>
+            <Text style={[styles.recentText, { color: '#FFFFFF' }]}>
+              {new Date(history[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {history[0].hands.length} rounds played
+            </Text>
+          </View>
         )}
-      />
+      </ScrollView>
+      <BottomNav />
     </View>
   );
 }
@@ -401,8 +351,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
     backgroundColor: 'rgba(0,0,0,0.24)',
+  },
+  countAccuracyMainRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    width: '100%',
   },
   countAccuracyToggleActive: {
     borderColor: 'rgba(212,175,55,0.72)',
@@ -440,6 +393,8 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.78)',
     marginTop: 6,
     paddingTop: 6,
+    marginLeft: 49,
+    paddingRight: 2,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(212,175,55,0.28)',
   },
@@ -497,86 +452,22 @@ const styles = StyleSheet.create({
     fontSize: 28,
     color: '#FFFFFF',
   },
-  sectionTitle: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.7)',
-    letterSpacing: 2,
-    marginBottom: 16,
-    paddingLeft: 4,
-  },
-  sessionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  recentSummary: {
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
-  },
-  sessionDateText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-    marginBottom: 4,
-  },
-  sessionHandsText: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.5)',
-  },
-  sessionRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  sessionGradeBox: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
-    minWidth: 36,
-    alignItems: 'center',
-  },
-  sessionGradeText: {
-    fontFamily: 'Inter_700Bold',
-    fontSize: 14,
-  },
-  sessionAccText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 24,
-    backgroundColor: 'rgba(0,0,0,0.2)',
     borderRadius: 16,
+    padding: 20,
+    marginBottom: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-  },
-  emptyIconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.05)',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
-  emptyText: {
+  recentLabel: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 18,
-    color: '#FFFFFF',
-    marginBottom: 8,
+    fontSize: 12,
+    letterSpacing: 1,
+    marginBottom: 6,
   },
-  emptySub: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.6)',
-    textAlign: 'center',
-    lineHeight: 20,
+  recentText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 15,
   }
 });
