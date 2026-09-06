@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "Blackjack Coach"
+description = "A mobile training companion for blackjack players to record hands, compare decisions against basic strategy, receive an overall session grade, and review clear explanations of mistakes and better plays."
+version = "1.0.0"
+id = "artifacts/blackjack-coach"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 25063
+
+[services.development]
+run = "pnpm --filter @workspace/blackjack-coach run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/blackjack-coach", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/blackjack-coach", "run", "serve" ]
+
+[services.env]
+PORT = "25063"
+BASE_PATH = "/"
