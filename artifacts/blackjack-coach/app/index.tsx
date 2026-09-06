@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Platform, Pressable } from 'react-native';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
@@ -13,6 +13,7 @@ import Animated, {
   withDelay, 
   interpolate 
 } from 'react-native-reanimated';
+import { getOnboardingRecord } from '@/lib/onboarding';
 
 const AnimatedPressable = ({ onPress, style, children, testID }: any) => {
   const scale = useSharedValue(1);
@@ -143,6 +144,22 @@ export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [onboardingReady, setOnboardingReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    getOnboardingRecord().then(record => {
+      if (!mounted) return;
+      if (!record) {
+        router.replace('/onboarding');
+        return;
+      }
+      setOnboardingReady(true);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [router]);
 
   const handleStart = () => {
     if (Platform.OS !== 'web') {
@@ -156,6 +173,10 @@ export default function DashboardScreen() {
   const correctD = overallDecisions.filter(d => d.isCorrect).length;
   const acc = totalD === 0 ? 0 : Math.round((correctD / totalD) * 100);
   const totalHands = history.reduce((sum, s) => sum + s.hands.length, 0);
+
+  if (!onboardingReady) {
+    return <View style={[styles.container, { backgroundColor: colors.background }]} />;
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
