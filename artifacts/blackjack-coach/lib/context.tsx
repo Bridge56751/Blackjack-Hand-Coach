@@ -18,6 +18,8 @@ export type HandRecord = {
   outcome: 'Win' | 'Loss' | 'Push' | 'Surrender';
   bet?: number;
   netChange?: number;
+  insuranceBet?: number;
+  insuranceNet?: number;
   dealerCards?: string[];
   playerHands?: { cards: string[]; bet: number; outcome: string; netChange: number }[];
 };

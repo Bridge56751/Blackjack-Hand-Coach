@@ -44,9 +44,10 @@ export function canDouble(hand: GameHand, rules: TableRules) {
   return hand.cards.length === 2 && !hand.doubled && !hand.splitAces && (!hand.fromSplit || rules.doubleAfterSplit) && permitted;
 }
 export function canSplit(hand: GameHand, rules: TableRules, handCount: number) {
+  if (hand.cards.length !== 2) return false;
   const sameValue = cardValue(hand.cards[0]) === cardValue(hand.cards[1]);
   const aces = hand.cards[0]?.rank === 'A';
-  return hand.cards.length === 2 && sameValue && handCount < 4 && (!aces || !hand.fromSplit || rules.resplitAces);
+  return sameValue && handCount < 4 && (!aces || !hand.fromSplit || rules.resplitAces);
 }
 export function settleHand(hand: GameHand, dealer: Card[]): { outcome: HandOutcome; credit: number } {
   if (hand.surrendered) return { outcome: 'Surrender', credit: hand.bet / 2 };
@@ -57,4 +58,11 @@ export function settleHand(hand: GameHand, dealer: Card[]): { outcome: HandOutco
   if (dealerTotal > 21 || player > dealerTotal) return { outcome: 'Win', credit: hand.bet * 2 };
   if (player < dealerTotal) return { outcome: 'Loss', credit: 0 };
   return { outcome: 'Push', credit: hand.bet };
+}
+
+export function settleInsurance(stake: number, dealerHasBlackjack: boolean): { credit: number; net: number } {
+  if (stake <= 0) return { credit: 0, net: 0 };
+  return dealerHasBlackjack
+    ? { credit: stake * 3, net: stake * 2 }
+    : { credit: 0, net: -stake };
 }

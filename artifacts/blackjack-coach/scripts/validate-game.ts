@@ -1,4 +1,4 @@
-import { canDouble, canSplit, createShoe, dealerShouldHit, handTotal, settleHand } from '../lib/game.ts';
+import { canDouble, canSplit, createShoe, dealerShouldHit, handTotal, settleHand, settleInsurance } from '../lib/game.ts';
 import type { GameHand } from '../lib/game.ts';
 import { DEFAULT_TABLE_RULES } from '../lib/rules.ts';
 let cardId = 0;
@@ -11,5 +11,11 @@ ok(dealerShouldHit([c('A'),c('6')], { ...DEFAULT_TABLE_RULES, dealerHitsSoft17: 
 ok(settleHand(hand(['A','K']), [c('T'),c('7')]).credit === 25, 'blackjack 3:2');
 ok(settleHand({ ...hand(['T','9'], 20), doubled: true }, [c('T'),c('8')]).credit === 40, 'double settlement');
 ok(canSplit(hand(['8','8']), DEFAULT_TABLE_RULES, 1) && canDouble({ ...hand(['5','4']), fromSplit: true }, DEFAULT_TABLE_RULES), 'split and DAS');
+ok(!canSplit(hand(['8']), DEFAULT_TABLE_RULES, 1), 'incomplete dealt hand cannot split');
 ok(createShoe(6).length === 312 && createShoe(1).length === 52, 'shoe counts');
+ok(settleInsurance(5, true).credit === 15 && settleInsurance(5, true).net === 10, 'insurance pays 2:1');
+ok(settleInsurance(5, false).credit === 0 && settleInsurance(5, false).net === -5, 'losing insurance stake');
+const simultaneousBlackjacksMainCredit = settleHand(hand(['A','K']), [c('A'),c('T')]).credit;
+const simultaneousBlackjacksInsurance = settleInsurance(5, true);
+ok(simultaneousBlackjacksMainCredit + simultaneousBlackjacksInsurance.credit - 10 - 5 === 10, 'player and dealer blackjack with insurance');
 console.log('Blackjack game validation passed.');

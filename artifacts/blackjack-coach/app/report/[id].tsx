@@ -52,7 +52,7 @@ export default function ReportScreen() {
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
-            {session.hands.some(hand => hand.playerHands?.length) && <View style={[styles.roundSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>{session.hands.map((hand, index) => <Text key={hand.id} style={[styles.roundText, { color: colors.mutedForeground }]}>Hand {index + 1} · ${hand.bet ?? 0} · {hand.netChange && hand.netChange > 0 ? '+' : ''}{hand.netChange ?? 0} {hand.playerHands?.length ? `(${hand.playerHands.map(item => item.outcome).join(' / ')})` : ''}</Text>)}</View>}
+            {session.hands.some(hand => hand.playerHands?.length) && <View style={[styles.roundSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>{session.hands.map((hand, index) => <Text key={hand.id} style={[styles.roundText, { color: colors.mutedForeground }]}>Hand {index + 1} · ${hand.bet ?? 0} · {hand.netChange && hand.netChange > 0 ? '+' : ''}{hand.netChange ?? 0} {hand.playerHands?.length ? `(${hand.playerHands.map(item => item.outcome).join(' / ')})` : ''}{hand.insuranceBet ? ` · Ins: ${hand.insuranceNet && hand.insuranceNet > 0 ? '+' : ''}${hand.insuranceNet}` : ''}</Text>)}</View>}
             {mistakes.length === 0 && (
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="award" size={40} color={colors.primary} style={{ marginBottom: 12 }} />

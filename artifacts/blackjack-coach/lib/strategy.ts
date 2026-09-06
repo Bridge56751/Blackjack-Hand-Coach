@@ -1,7 +1,7 @@
 import fixture from './strategy-fixtures.json';
 import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
 
-export type Action = 'H' | 'S' | 'D' | 'P' | 'R';
+export type Action = 'H' | 'S' | 'D' | 'P' | 'R' | 'I' | 'N';
 type StrategyCode = Action | 'd' | 'r' | 'p';
 type StrategyTable = Record<string, StrategyCode[]>;
 type Strategy = { hard: StrategyTable; soft: StrategyTable; pairs: StrategyTable };
@@ -51,6 +51,7 @@ function resolveCode(code: StrategyCode, canDouble: boolean, canSurrender: boole
     case 'P': return canSplit ? 'P' : 'H';
     case 'p': return canSurrender ? 'R' : canSplit ? 'P' : 'H';
   }
+  return 'H';
 }
 
 function cell(table: StrategyTable, row: string, dealer: number): StrategyCode | null {
@@ -114,5 +115,7 @@ export function getActionName(action: Action): string {
     case 'D': return 'Double';
     case 'P': return 'Split';
     case 'R': return 'Surrender';
+    case 'I': return 'Take Insurance';
+    case 'N': return 'No Insurance';
   }
 }
