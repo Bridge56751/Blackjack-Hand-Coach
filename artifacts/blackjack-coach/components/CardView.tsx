@@ -2,33 +2,29 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { Card, isRed } from '../lib/game';
 
-export function CardView({ card, hidden, index, isShort, isDealer }: { card?: Card; hidden?: boolean; index: number; isShort?: boolean; isDealer?: boolean }) {
-  const cardW = isShort ? 60 : (isDealer ? 70 : 80);
-  const cardH = isShort ? 88 : (isDealer ? 100 : 115);
-  const margin = index ? (isShort ? -28 : (isDealer ? -35 : -40)) : 0;
-
-  const patternW = cardW * 0.5;
-  const patternH = cardH * 0.6;
-  const rankSize = isShort ? 15 : (isDealer ? 16 : 18);
-  const suitSize = isShort ? 12 : (isDealer ? 12 : 14);
-  const centerSize = isShort ? 32 : (isDealer ? 38 : 46);
-
-  const rotateZ = index === 0 ? '-3deg' : index === 1 ? '1deg' : index === 2 ? '4deg' : '7deg';
+export function CardView({ card, hidden, index, scale = 1 }: { card?: Card; hidden?: boolean; index: number; scale?: number }) {
+  const cardW = 76;
+  const cardH = 110;
+  const margin = index ? -52 : 0;
 
   const containerStyle = [
     styles.cardContainer,
-    { width: cardW, height: cardH, marginLeft: margin, transform: [{ rotateZ }] }
+    { width: cardW, height: cardH, marginLeft: margin, transform: [{ scale }] }
   ];
 
   if (hidden) {
     return (
       <Animated.View entering={FadeInDown.delay(index * 90).duration(220)} style={containerStyle}>
-        <View style={[styles.card, styles.hiddenCard]}>
-          <LinearGradient colors={['#0A3078', '#05183D']} style={styles.hiddenInner}>
-             <View style={[styles.hiddenPattern, { width: patternW, height: patternH }]} />
-             <View style={[styles.hiddenPattern, { width: patternW - 10, height: patternH - 10, position: 'absolute' }]} />
+        <View style={[styles.card, { padding: 4, borderColor: '#fff' }]}>
+          <LinearGradient colors={['#b4211e', '#7a1918']} style={styles.hiddenInner}>
+             <View style={styles.hiddenInnerBorder}>
+               <View style={styles.hiddenCenterCircle}>
+                 <FontAwesome5 name="crown" size={20} color="rgba(255,255,255,0.4)" />
+               </View>
+             </View>
           </LinearGradient>
         </View>
       </Animated.View>
@@ -43,18 +39,12 @@ export function CardView({ card, hidden, index, isShort, isDealer }: { card?: Ca
   return (
     <Animated.View entering={FadeInDown.delay(index * 90).duration(220)} style={containerStyle}>
       <View style={styles.card}>
-        <LinearGradient colors={['#FFFFFF', '#F0F0F0']} style={[StyleSheet.absoluteFill, { borderRadius: 6 }]} />
-
         <View style={styles.topLeft}>
-          <Text style={[styles.indexRank, { color, fontSize: rankSize, lineHeight: rankSize + 2 }]}>{rank}</Text>
-          <Text style={[styles.indexSuit, { color, fontSize: suitSize, lineHeight: suitSize + 2 }]}>{card.suit}</Text>
+          <Text style={[styles.indexRank, { color }]}>{rank}</Text>
+          <Text style={[styles.indexSuit, { color }]}>{card.suit}</Text>
         </View>
         <View style={styles.center}>
-          <Text style={[styles.centerSuit, { color, fontSize: centerSize }]}>{card.suit}</Text>
-        </View>
-        <View style={styles.bottomRight}>
-          <Text style={[styles.indexRank, { color, fontSize: rankSize, lineHeight: rankSize + 2, transform: [{ rotate: '180deg' }] }]}>{rank}</Text>
-          <Text style={[styles.indexSuit, { color, fontSize: suitSize, lineHeight: suitSize + 2, transform: [{ rotate: '180deg' }] }]}>{card.suit}</Text>
+          <Text style={[styles.centerSuit, { color }]}>{card.suit}</Text>
         </View>
       </View>
     </Animated.View>
@@ -64,57 +54,63 @@ export function CardView({ card, hidden, index, isShort, isDealer }: { card?: Ca
 const styles = StyleSheet.create({
   cardContainer: {
     shadowColor: '#000',
-    shadowOffset: { width: -2, height: 4 },
-    shadowOpacity: 0.3,
+    shadowOffset: { width: 4, height: 6 },
+    shadowOpacity: 0.4,
     shadowRadius: 5,
-    elevation: 6,
+    elevation: 8,
     zIndex: 1,
   },
   card: {
     flex: 1,
-    borderRadius: 6,
-    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    backgroundColor: '#FAFAFA',
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    padding: 6,
-    justifyContent: 'space-between',
+    borderColor: '#D0D0D0',
     overflow: 'hidden'
-  },
-  hiddenCard: {
-    padding: 4,
-    borderColor: '#FFF',
   },
   hiddenInner: {
     flex: 1,
-    borderRadius: 3,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  hiddenPattern: {
+  hiddenInnerBorder: {
+    width: '85%',
+    height: '90%',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 4,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hiddenCenterCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 2,
-    borderStyle: 'dashed'
+    borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   topLeft: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
     alignItems: 'center',
-    width: 20,
-    zIndex: 2,
-  },
-  bottomRight: {
-    alignItems: 'center',
-    width: 20,
-    alignSelf: 'flex-end',
+    width: 24,
     zIndex: 2,
   },
   indexRank: {
     fontFamily: 'Inter_700Bold',
+    fontSize: 20,
+    lineHeight: 20,
     letterSpacing: -1,
   },
   indexSuit: {
     fontFamily: 'Inter_400Regular',
+    fontSize: 16,
+    lineHeight: 16,
   },
   center: {
     position: 'absolute',
@@ -124,6 +120,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   centerSuit: {
-    opacity: 0.85,
+    fontSize: 44,
+    opacity: 0.9,
   }
 });
