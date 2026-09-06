@@ -1,19 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInUp } from 'react-native-reanimated';
 import { useCoach, Decision } from '@/lib/context';
 import { getBasicStrategy, Action } from '@/lib/strategy';
 import { useColors } from '@/hooks/useColors';
-import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealerShouldHit, draw, handTotal, isBlackjack, isRed, settleHand } from '@/lib/game';
+import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealerShouldHit, draw, handTotal, isBlackjack, settleHand } from '@/lib/game';
+import { CardView } from '@/components/CardView';
+import { Chip, ChipStack } from '@/components/Chip';
 
 type Phase = 'betting' | 'playing' | 'settled';
-const chips = [5, 10, 25, 100];
+const chips = [5, 25, 100, 500];
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
 const buzz = (kind: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => { if (Platform.OS !== 'web') Haptics.impactAsync(kind); };
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function SessionScreen() {
   const { activeSession, endSession, recordHand } = useCoach();
@@ -23,12 +26,14 @@ export default function SessionScreen() {
   const [shoe, setShoe] = useState<Card[]>(() => createShoe(rules?.decks ?? 6));
   const [dealer, setDealer] = useState<Card[]>([]); const [hands, setHands] = useState<GameHand[]>([]);
   const [active, setActive] = useState(0); const [phase, setPhase] = useState<Phase>('betting');
+  const [lastNet, setLastNet] = useState(0);
   const decisionsRef = useRef<Decision[]>([]);
   const endingRef = useRef(false);
-  const [message, setMessage] = useState('Place your wager');
+  const [message, setMessage] = useState('PLACE YOUR WAGER');
   useEffect(() => { if (!activeSession && !endingRef.current) router.replace('/'); }, [activeSession, router]);
-  const current = hands[active]; const total = current ? handTotal(current.cards) : { total: 0, soft: false };
+  const current = hands[active];
   const used = (rules?.decks ?? 6) * 52 - shoe.length;
+
   const dealDraw = (cards: Card[], currentShoe: Card[]) => { const next = draw(currentShoe); return { cards: [...cards, next.card], shoe: next.shoe }; };
   const addDecision = (action: Action, hand: GameHand) => {
     if (!rules || !dealer[0]) return;
@@ -44,10 +49,12 @@ export default function SessionScreen() {
     const resolved = finalHands.map(hand => ({ ...hand, ...settleHand(hand, dealerCards) }));
     const credit = resolved.reduce((sum, hand) => sum + settleHand(hand, dealerCards).credit, 0);
     const totalBet = resolved.reduce((sum, hand) => sum + hand.bet, 0);
-    const net = credit - totalBet; setBankroll(value => value + credit); setDealer(dealerCards); setHands(resolved); setShoe(currentShoe); setPhase('settled');
+    const net = credit - totalBet;
+    setBankroll(value => value + credit); setDealer(dealerCards); setHands(resolved); setShoe(currentShoe); setPhase('settled');
+    setLastNet(net);
     const outcome = net > 0 ? 'Win' : net < 0 ? 'Loss' : 'Push';
     recordHand({ id: uid(), decisions: decisionsRef.current, outcome, bet: totalBet, netChange: net, dealerCards: dealerCards.map(cardLabel), playerHands: resolved.map(h => ({ cards: h.cards.map(cardLabel), bet: h.bet, outcome: h.outcome!, netChange: settleHand(h, dealerCards).credit - h.bet })) });
-    setMessage(net > 0 ? `You collect +$${credit - totalBet}` : net < 0 ? `Table takes $${Math.abs(net)}` : 'Push — wager returned');
+    setMessage(net > 0 ? `YOU COLLECT +$${credit - totalBet}` : net < 0 ? `DEALER TAKES $${Math.abs(net)}` : 'WAGER RETURNED');
     buzz(net >= 0 ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
   };
   const advance = (updated: GameHand[], shoeNow: Card[], index: number) => {
@@ -60,7 +67,7 @@ export default function SessionScreen() {
     let fresh = shoe.length < Math.round(rules.decks * 52 * .28) ? createShoe(rules.decks) : shoe;
     let a = draw(fresh); const playerOne = a.card; a = draw(a.shoe); const up = a.card; a = draw(a.shoe); const playerTwo = a.card; a = draw(a.shoe); const hole = a.card;
     const hand: GameHand = { id: uid(), cards: [playerOne, playerTwo], bet, doubled: false, surrendered: false, splitAces: false, fromSplit: false };
-    setBankroll(value => value - bet); setLastBet(bet); setBet(0); setDealer([up, hole]); setHands([hand]); setShoe(a.shoe); setActive(0); decisionsRef.current = []; setPhase('playing'); setMessage('Your move');
+    setBankroll(value => value - bet); setLastBet(bet); setBet(0); setDealer([up, hole]); setHands([hand]); setShoe(a.shoe); setActive(0); decisionsRef.current = []; setPhase('playing'); setMessage('YOUR MOVE');
     buzz(Haptics.ImpactFeedbackStyle.Medium);
     if (isBlackjack(hand) || handTotal([up, hole]).total === 21) setTimeout(() => settle([hand], [up, hole], a.shoe), 260);
   };
@@ -80,7 +87,7 @@ export default function SessionScreen() {
       if (aces) advance(updated, b.shoe, active - 1); else { setHands(updated); setShoe(b.shoe); }
     }
   };
-  const newHand = () => { setDealer([]); setHands([]); decisionsRef.current = []; setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'Place your wager' : 'Your stake is empty'); };
+  const newHand = () => { setDealer([]); setHands([]); decisionsRef.current = []; setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR WAGER' : 'YOUR STAKE IS EMPTY'); };
   const addChip = (amount: number) => { if (phase === 'betting' && bet + amount <= bankroll) { setBet(v => v + amount); buzz(); } };
   const end = () => {
     endingRef.current = true;
@@ -88,18 +95,265 @@ export default function SessionScreen() {
     if (id) router.replace(`/report/${id}`);
     else router.replace('/');
   };
+
   if (!activeSession || !rules) return null;
-  const canD = current && bankroll >= current.bet && canDouble(current, rules); const canP = current && bankroll >= current.bet && canSplit(current, rules, hands.length);
+  const canD = current && bankroll >= current.bet && canDouble(current, rules);
+  const canP = current && bankroll >= current.bet && canSplit(current, rules, hands.length);
   const canR = current && current.cards.length === 2 && !current.fromSplit && rules.surrender === 'late';
-  return <View style={[styles.page, { backgroundColor: colors.background, paddingTop: Math.max(insets.top, 16) + (Platform.OS === 'web' ? 50 : 0) }]}>
-    <View style={styles.header}><TouchableOpacity testID="end-session" onPress={end}><Text style={[styles.end, { color: colors.mutedForeground }]}>END SESSION</Text></TouchableOpacity><View style={styles.bank}><Text style={[styles.micro, { color: colors.mutedForeground }]}>BANKROLL</Text><Text style={[styles.money, { color: colors.primary }]}>${bankroll}</Text></View><Text style={[styles.shoe, { color: colors.mutedForeground }]}>{used} dealt</Text></View>
-    <View style={[styles.table, { borderColor: colors.border }]}><View style={[styles.arc, { borderColor: colors.primary }]} /><Text style={[styles.dealerLabel, { color: colors.mutedForeground }]}>DEALER {phase === 'settled' && `• ${handTotal(dealer).total}`}</Text><CardRow cards={dealer} hidden={phase === 'playing'} colors={colors} />
-      <View style={styles.centerMark}><Text style={[styles.markText, { color: colors.primary }]}>BLACKJACK COACH</Text><Text style={[styles.markSub, { color: colors.mutedForeground }]}>PLAY THE HAND</Text></View>
-      <View style={styles.handZone}>{hands.map((hand, index) => <View key={hand.id} style={[styles.handBlock, index === active && phase === 'playing' && { borderColor: colors.primary }]}><View style={styles.handMeta}><Text style={[styles.playerLabel, { color: colors.mutedForeground }]}>HAND {hands.length > 1 ? index + 1 : ''} • ${hand.bet}</Text><Text style={[styles.total, { color: colors.foreground }]}>{handTotal(hand.cards).total}{handTotal(hand.cards).soft ? ' soft' : ''}</Text></View><CardRow cards={hand.cards} colors={colors} />{phase === 'settled' && <Text style={[styles.outcome, { color: hand.outcome === 'Loss' || hand.outcome === 'Bust' ? colors.destructive : colors.primary }]}>{hand.outcome}</Text>}</View>)}</View>
+  const handsScale = hands.length > 2 ? 0.8 : hands.length > 1 ? 0.9 : 1;
+
+  const getOutcomeStyle = (outcome?: string) => {
+    if (outcome === 'Win' || outcome === 'Blackjack') return styles.badgeWin;
+    if (outcome === 'Push') return styles.badgePush;
+    return styles.badgeLoss;
+  };
+
+  const isCompact = SCREEN_HEIGHT < 800;
+
+  return (
+    <View style={[styles.page, { backgroundColor: colors.background, paddingTop: Math.max(insets.top, 16) + (Platform.OS === 'web' ? 50 : 0) }]}>
+
+      {/* HUD Header */}
+      <View style={styles.header}>
+        <TouchableOpacity testID="end-session" onPress={end} style={styles.hdrBtnLeft}>
+          <Feather name="log-out" size={12} color={colors.mutedForeground} />
+          <Text style={[styles.hdrText, { color: colors.mutedForeground }]}>EXIT</Text>
+        </TouchableOpacity>
+        <View style={styles.hdrCenter}>
+          <Text style={[styles.hdrBankrollLabel, { color: colors.mutedForeground }]}>BANKROLL</Text>
+          <Text style={styles.hdrBankroll}>${bankroll}</Text>
+        </View>
+        <View style={styles.hdrBtnRight}>
+          <Feather name="layers" size={12} color={colors.mutedForeground} />
+          <Text style={[styles.hdrText, { color: colors.mutedForeground }]}>{used} DEALT</Text>
+        </View>
+      </View>
+
+      {/* Table Area */}
+      <View style={styles.tableOuter}>
+        <View style={styles.tableInner}>
+          <View style={styles.feltLight} />
+          <View style={styles.arc} />
+
+          {/* Dealer Zone */}
+          <View style={styles.dealerZone}>
+            <View style={styles.handHeader}>
+              <View style={[styles.handTotalBadge, { opacity: (phase === 'settled' || phase === 'playing') ? 1 : 0 }]}>
+                <Text style={styles.handTotalText}>{phase === 'settled' ? handTotal(dealer).total : '?'}</Text>
+              </View>
+            </View>
+            <View style={styles.cardRow}>
+              {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={phase === 'playing' && i === 1} />)}
+            </View>
+          </View>
+
+          {/* Center Felt Markings */}
+          <View style={[styles.centerMark, isCompact && { marginTop: 10, flex: 0.5 }]}>
+            <Text style={styles.markRules}>BLACKJACK PAYS 3 TO 2</Text>
+            <Text style={styles.markSubRules}>{rules?.dealerHitsSoft17 ? 'DEALER MUST HIT SOFT 17' : 'DEALER STANDS ON ALL 17s'}</Text>
+            <Text style={styles.markSubRules}>INSURANCE PAYS 2 TO 1</Text>
+          </View>
+
+          {/* Player Zone */}
+          <View style={styles.playerZone}>
+            {phase === 'betting' ? (
+              <View style={styles.betSpot}>
+                <View style={styles.betRing}>
+                  {bet > 0 ? (
+                    <View style={styles.betStack}>
+                      <ChipStack amount={bet} />
+                      <View style={styles.betAmountBadge}>
+                        <Text style={styles.betAmountText}>${bet}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.placeBetText}>PLACE BET</Text>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View style={[styles.handsContainer, { transform: [{ scale: handsScale }] }]}>
+                {hands.map((hand, index) => (
+                  <View key={hand.id} style={[styles.handBlock, index === active && phase === 'playing' && styles.handBlockActive]}>
+                    <View style={styles.handHeader}>
+                      <View style={styles.handTotalBadge}>
+                        <Text style={styles.handTotalText}>{handTotal(hand.cards).total}{handTotal(hand.cards).soft ? 'S' : ''}</Text>
+                      </View>
+                      {phase === 'settled' && (
+                        <View style={[styles.outcomeBadge, getOutcomeStyle(hand.outcome)]}>
+                          <Text style={styles.outcomeText}>{hand.outcome?.toUpperCase()}</Text>
+                        </View>
+                      )}
+                    </View>
+                    <View style={styles.cardRow}>
+                      {hand.cards.map((card, i) => <CardView key={card.id} card={card} index={i} />)}
+                    </View>
+                    <View style={styles.handBetRow}>
+                      <Chip amount={hand.bet} size={18} style={{ shadowOpacity: 0, elevation: 0 }} />
+                      <Text style={styles.handBetText}>${hand.bet}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+      </View>
+
+      {/* Controls Console */}
+      <View style={[styles.console, { paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === 'web' ? 26 : 0) }]}>
+        {phase === 'betting' ? (
+          <View style={styles.consoleBetting}>
+            {bankroll < 5 && !bet ? (
+              <View style={{ flex: 1, justifyContent: 'center' }}>
+                <Text style={styles.prompt}>YOUR PRACTICE STAKE IS EMPTY</Text>
+                <TouchableOpacity testID="reset-bankroll" onPress={() => { setBankroll(1000); setMessage('FRESH STAKE LOADED'); }} style={styles.goldBtn}>
+                  <Text style={styles.goldBtnText}>RESET BANKROLL</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.pillRow}>
+                  <Text style={styles.prompt}>{message}</Text>
+                  <View style={{flexDirection: 'row', gap: 6}}>
+                    <TouchableOpacity onPress={() => setBet(0)} disabled={!bet} style={[styles.pillBtn, !bet && styles.disabled]}>
+                      <Text style={styles.pillText}>CLEAR</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => setBet(Math.min(lastBet, bankroll))} disabled={!lastBet || lastBet > bankroll} style={[styles.pillBtn, (!lastBet || lastBet > bankroll) && styles.disabled]}>
+                      <Text style={styles.pillText}>REPEAT</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.chipTray}>
+                  {chips.map(amount => (
+                    <TouchableOpacity key={amount} testID={`chip-${amount}`} disabled={bet + amount > bankroll} onPress={() => addChip(amount)} style={bet + amount > bankroll && styles.disabled}>
+                      <Chip amount={amount} disabled={bet + amount > bankroll} />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <TouchableOpacity testID="deal-button" disabled={!bet} onPress={deal} style={[styles.goldBtn, !bet && styles.disabled]}>
+                  <Text style={styles.goldBtnText}>DEAL</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        ) : phase === 'playing' ? (
+          <View style={styles.consolePlaying}>
+            <View style={styles.playMainRow}>
+              <TouchableOpacity testID="action-hit" disabled={!!current?.splitAces} onPress={() => act('H')} style={[styles.playBtn, styles.btnHit, !!current?.splitAces && styles.disabled]}>
+                <Text style={styles.playBtnText}>HIT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity testID="action-stand" onPress={() => act('S')} style={[styles.playBtn, styles.btnStand]}>
+                <Text style={styles.playBtnText}>STAND</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.playSubRow}>
+              <TouchableOpacity testID="action-double" disabled={!canD} onPress={() => act('D')} style={[styles.playBtnSub, !canD && styles.disabled]}>
+                <Text style={styles.playBtnSubText}>DOUBLE</Text>
+              </TouchableOpacity>
+              <TouchableOpacity testID="action-split" disabled={!canP} onPress={() => act('P')} style={[styles.playBtnSub, !canP && styles.disabled]}>
+                <Text style={styles.playBtnSubText}>SPLIT</Text>
+              </TouchableOpacity>
+            </View>
+            {canR && (
+               <TouchableOpacity testID="action-surrender" onPress={() => act('R')} style={styles.surrenderBtn}>
+                 <Text style={styles.surrenderText}>SURRENDER</Text>
+               </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          <Animated.View entering={FadeInUp.duration(280)} style={styles.consoleSettled}>
+            <View style={styles.settleBanner}>
+              <View style={[styles.premiumBadge, lastNet > 0 ? styles.badgeWin : lastNet < 0 ? styles.badgeLoss : styles.badgePush]}>
+                <Text style={styles.premiumBadgeText}>{lastNet > 0 ? 'WINNER' : lastNet < 0 ? 'DEALER WINS' : 'PUSH'}</Text>
+              </View>
+              <Text style={styles.settleMessage}>{message}</Text>
+            </View>
+            <TouchableOpacity testID="next-hand" onPress={newHand} style={styles.goldBtn}>
+              <Text style={styles.goldBtnText}>NEXT HAND</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        )}
+      </View>
     </View>
-    <View style={[styles.console, { paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === 'web' ? 26 : 0) }]}>{phase === 'betting' ? <>{bankroll < 5 ? <><Text style={[styles.prompt, { color: colors.mutedForeground }]}>Your practice stake is empty.</Text><TouchableOpacity testID="reset-bankroll" onPress={() => { setBankroll(1000); setMessage('Fresh practice stake'); }} style={[styles.deal, { backgroundColor: colors.primary }]}><Text style={[styles.dealText, { color: colors.primaryForeground }]}>RESET BANKROLL</Text></TouchableOpacity></> : <><View style={styles.betline}><Text style={[styles.micro, { color: colors.mutedForeground }]}>ON THE FELT</Text><Text style={[styles.bet, { color: colors.foreground }]}>${bet || '—'}</Text></View><View style={styles.chips}>{chips.map(amount => <TouchableOpacity key={amount} testID={`chip-${amount}`} disabled={bet + amount > bankroll} onPress={() => addChip(amount)} style={[styles.chip, { borderColor: colors.primary }, bet + amount > bankroll && styles.disabled]}><Text style={[styles.chipText, { color: colors.primary }]}>${amount}</Text></TouchableOpacity>)}</View><View style={styles.betActions}><TouchableOpacity onPress={() => setBet(0)} disabled={!bet}><Text style={[styles.minor, { color: colors.mutedForeground }]}>CLEAR</Text></TouchableOpacity><TouchableOpacity onPress={() => setBet(Math.min(lastBet, bankroll))} disabled={!lastBet || lastBet > bankroll}><Text style={[styles.minor, { color: colors.mutedForeground }]}>REPEAT ${lastBet}</Text></TouchableOpacity></View><TouchableOpacity testID="deal-button" disabled={!bet} onPress={deal} style={[styles.deal, { backgroundColor: colors.primary }, !bet && styles.disabled]}><Feather name="play" size={19} color={colors.primaryForeground}/><Text style={[styles.dealText, { color: colors.primaryForeground }]}>DEAL</Text></TouchableOpacity></>}</> : phase === 'playing' ? <><Text style={[styles.prompt, { color: colors.mutedForeground }]}>{message}</Text><View style={styles.actionRow}><TableAction testID="action-hit" label="HIT" icon="plus" disabled={!!current?.splitAces} onPress={() => act('H')} colors={colors}/><TableAction testID="action-stand" label="STAND" icon="check" onPress={() => act('S')} colors={colors}/><TableAction testID="action-double" label="DOUBLE" icon="corner-down-right" disabled={!canD} onPress={() => act('D')} colors={colors}/><TableAction testID="action-split" label="SPLIT" icon="git-branch" disabled={!canP} onPress={() => act('P')} colors={colors}/></View>{canR && <TouchableOpacity testID="action-surrender" onPress={() => act('R')}><Text style={[styles.surrender, { color: colors.mutedForeground }]}>SURRENDER THIS HAND</Text></TouchableOpacity>}</> : <Animated.View entering={FadeInUp.duration(280)} style={styles.settle}><Text style={[styles.settleTitle, { color: colors.foreground }]}>{message}</Text><TouchableOpacity testID="next-hand" onPress={newHand} style={[styles.deal, { backgroundColor: colors.primary }]}><Text style={[styles.dealText, { color: colors.primaryForeground }]}>NEXT HAND</Text><Feather name="arrow-right" size={19} color={colors.primaryForeground}/></TouchableOpacity></Animated.View>}</View>
-  </View>;
+  );
 }
-function CardRow({ cards, hidden, colors }: { cards: Card[]; hidden?: boolean; colors: any }) { return <View style={styles.cardRow}>{cards.map((card, i) => <Animated.View entering={FadeInDown.delay(i * 90).duration(220)} key={card.id} style={[styles.card, { backgroundColor: hidden && i === 1 ? colors.secondary : '#F7F0DD', marginLeft: i ? -28 : 0 }]}>{hidden && i === 1 ? <Feather name="layers" size={25} color={colors.primary}/> : <><Text style={[styles.rank, { color: isRed(card) ? colors.destructive : '#172019' }]}>{card.rank === 'T' ? '10' : card.rank}</Text><Text style={[styles.suit, { color: isRed(card) ? colors.destructive : '#172019' }]}>{card.suit}</Text></>}</Animated.View>)}</View>; }
-function TableAction({ label, icon, onPress, disabled, colors, testID }: { label: string; icon: keyof typeof Feather.glyphMap; onPress: () => void; disabled?: boolean; colors: any; testID: string }) { return <TouchableOpacity testID={testID} disabled={disabled} onPress={onPress} style={[styles.action, { backgroundColor: colors.card, borderColor: colors.border }, disabled && styles.disabled]}><Feather name={icon} size={16} color={colors.primary}/><Text style={[styles.actionText, { color: colors.foreground }]}>{label}</Text></TouchableOpacity>; }
-const styles = StyleSheet.create({ page:{flex:1}, header:{height:54,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},end:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1},bank:{alignItems:'center'},micro:{fontFamily:'Inter_700Bold',fontSize:9,letterSpacing:1.4},money:{fontFamily:'Inter_700Bold',fontSize:22},shoe:{fontFamily:'Inter_500Medium',fontSize:11,width:45,textAlign:'right'},table:{flex:1,marginHorizontal:10,borderRadius:32,borderWidth:1,overflow:'hidden',paddingTop:16,alignItems:'center',backgroundColor:'rgba(0,0,0,.13)'},arc:{position:'absolute',top:-112,width:300,height:180,borderRadius:150,borderWidth:1,opacity:.65},dealerLabel:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1.4,marginBottom:7},cardRow:{flexDirection:'row',minHeight:91,justifyContent:'center'},card:{width:62,height:88,borderRadius:7,padding:7,justifyContent:'space-between',shadowColor:'#00160b',shadowOpacity:.35,shadowRadius:5,elevation:4},rank:{fontFamily:'Inter_700Bold',fontSize:20},suit:{fontSize:19,alignSelf:'flex-end'},centerMark:{alignItems:'center',marginTop:15,marginBottom:10},markText:{fontFamily:'Inter_700Bold',fontSize:12,letterSpacing:2.3},markSub:{fontFamily:'Inter_500Medium',fontSize:9,letterSpacing:1.4,marginTop:4},handZone:{width:'100%',paddingHorizontal:13,marginTop:'auto',paddingBottom:15},handBlock:{borderWidth:1,borderColor:'transparent',borderRadius:13,alignItems:'center',padding:6,marginTop:4},handMeta:{width:'94%',flexDirection:'row',justifyContent:'space-between',marginBottom:2},playerLabel:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1.2},total:{fontFamily:'Inter_700Bold',fontSize:13},outcome:{fontFamily:'Inter_700Bold',fontSize:11,letterSpacing:1.2,marginTop:-3},console:{paddingHorizontal:18,paddingTop:12,minHeight:185},betline:{flexDirection:'row',justifyContent:'space-between',alignItems:'baseline'},bet:{fontFamily:'Inter_700Bold',fontSize:25},chips:{flexDirection:'row',justifyContent:'space-between',marginTop:9},chip:{width:54,height:54,borderRadius:27,borderWidth:3,alignItems:'center',justifyContent:'center',borderStyle:'dashed'},chipText:{fontFamily:'Inter_700Bold',fontSize:12},betActions:{flexDirection:'row',justifyContent:'space-between',marginTop:10,paddingHorizontal:5},minor:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1},deal:{height:52,borderRadius:10,marginTop:12,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:9},dealText:{fontFamily:'Inter_700Bold',fontSize:15,letterSpacing:1.7},disabled:{opacity:.3},prompt:{fontFamily:'Inter_600SemiBold',fontSize:12,textAlign:'center',letterSpacing:.8,marginBottom:9},actionRow:{flexDirection:'row',gap:7},action:{flex:1,height:55,borderWidth:1,borderRadius:9,alignItems:'center',justifyContent:'center',gap:4},actionText:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:.6},surrender:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1,textAlign:'center',marginTop:11},settle:{alignItems:'center'},settleTitle:{fontFamily:'Inter_700Bold',fontSize:18,textAlign:'center'} });
+
+const styles = StyleSheet.create({
+  page: { flex: 1 },
+  header: { height: 44, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  hdrBtnLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, width: 80, justifyContent: 'flex-start' },
+  hdrBtnRight: { flexDirection: 'row', alignItems: 'center', gap: 6, width: 80, justifyContent: 'flex-end' },
+  hdrText: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.5 },
+  hdrCenter: { alignItems: 'center' },
+  hdrBankrollLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, letterSpacing: 1.5, marginBottom: 2 },
+  hdrBankroll: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#D4AF37' },
+
+  tableOuter: { flex: 1, backgroundColor: '#301B0F', borderRadius: 36, marginHorizontal: 8, padding: 6, shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.5, shadowRadius: 15, elevation: 10 },
+  tableInner: { flex: 1, backgroundColor: '#0A2E1C', borderRadius: 30, overflow: 'hidden', borderWidth: 1.5, borderColor: '#D4AF37', alignItems: 'center' },
+  feltLight: { position: 'absolute', top: -100, width: 600, height: 600, borderRadius: 300, backgroundColor: 'rgba(255,255,255,0.02)' },
+  arc: { position: 'absolute', width: 600, height: 600, borderRadius: 300, borderWidth: 1.5, borderColor: 'rgba(212, 175, 55, 0.25)', top: 120 },
+
+  dealerZone: { marginTop: 24, alignItems: 'center', minHeight: 120 },
+  centerMark: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 60 },
+  playerZone: { width: '100%', alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 24, minHeight: 160 },
+
+  markRules: { fontFamily: 'Inter_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.6)', letterSpacing: 1.5, marginBottom: 6 },
+  markSubRules: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: 'rgba(255,255,255,0.35)', letterSpacing: 1, marginTop: 2 },
+
+  betSpot: { alignItems: 'center', justifyContent: 'center', height: 120 },
+  betRing: { width: 84, height: 84, borderRadius: 42, borderWidth: 2, borderColor: 'rgba(212, 175, 55, 0.4)', borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.15)' },
+  placeBetText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: 1 },
+  betStack: { alignItems: 'center', justifyContent: 'center' },
+  betAmountBadge: { backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10, marginTop: 6, borderWidth: 1, borderColor: '#D4AF37' },
+  betAmountText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#D4AF37' },
+
+  handsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 12 },
+  handBlock: { alignItems: 'center', padding: 8, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
+  handBlockActive: { borderColor: 'rgba(212, 175, 55, 0.4)', backgroundColor: 'rgba(212, 175, 55, 0.05)' },
+  handHeader: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6, marginBottom: 8, height: 20 },
+  handTotalBadge: { backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  handTotalText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFF' },
+  outcomeBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeWin: { backgroundColor: '#2A9D8F' },
+  badgePush: { backgroundColor: '#457B9D' },
+  badgeLoss: { backgroundColor: '#E63946' },
+  outcomeText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: '#FFF', letterSpacing: 0.5 },
+
+  cardRow: { flexDirection: 'row', justifyContent: 'center' },
+  handBetRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  handBetText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#FFF' },
+
+  console: { paddingHorizontal: 16, paddingTop: 16, minHeight: 180 },
+  prompt: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: 'rgba(255,255,255,0.5)', letterSpacing: 1, textAlign: 'center' },
+
+  consoleBetting: { flex: 1, justifyContent: 'space-between' },
+  pillRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 12 },
+  pillBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+  pillText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: '#FFF', letterSpacing: 1 },
+  chipTray: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10, marginBottom: 16 },
+
+  consolePlaying: { flex: 1 },
+  playMainRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  playBtn: { flex: 1, height: 64, borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: {width: 0, height: 3}, shadowRadius: 4, elevation: 4 },
+  btnHit: { backgroundColor: '#2A9D8F' },
+  btnStand: { backgroundColor: '#E63946' },
+  playBtnText: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#FFF', letterSpacing: 1 },
+
+  playSubRow: { flexDirection: 'row', gap: 12 },
+  playBtnSub: { flex: 1, height: 48, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.3)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  playBtnSubText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#FFF', letterSpacing: 0.5 },
+  surrenderBtn: { marginTop: 16, alignItems: 'center' },
+  surrenderText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 },
+
+  consoleSettled: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16, width: '100%' },
+  settleBanner: { alignItems: 'center', gap: 8 },
+  premiumBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8 },
+  premiumBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#FFF', letterSpacing: 1 },
+  settleMessage: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: 'rgba(255,255,255,0.7)', letterSpacing: 0.5 },
+
+  goldBtn: { height: 56, width: '100%', backgroundColor: '#D4AF37', borderRadius: 12, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.4, shadowOffset: {width: 0, height: 4}, shadowRadius: 5, elevation: 5 },
+  goldBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#000', letterSpacing: 1.5 },
+
+  disabled: { opacity: 0.4 }
+});
