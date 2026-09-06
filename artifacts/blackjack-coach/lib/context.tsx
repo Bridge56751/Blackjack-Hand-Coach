@@ -16,6 +16,10 @@ export type HandRecord = {
   id: string;
   decisions: Decision[];
   outcome: 'Win' | 'Loss' | 'Push' | 'Surrender';
+  bet?: number;
+  netChange?: number;
+  dealerCards?: string[];
+  playerHands?: { cards: string[]; bet: number; outcome: string; netChange: number }[];
 };
 
 export type Session = {
@@ -23,13 +27,15 @@ export type Session = {
   date: string;
   hands: HandRecord[];
   rules?: TableRules;
+  bankrollStart?: number;
+  bankrollEnd?: number;
 };
 
 type CoachContextType = {
   history: Session[];
   activeSession: Session | null;
   startSession: (rules?: TableRules) => void;
-  endSession: () => void;
+  endSession: (bankrollEnd?: number) => string | null;
   recordHand: (hand: HandRecord) => void;
   clearHistory: () => void;
 };
@@ -57,14 +63,19 @@ export function CoachProvider({ children }: { children: ReactNode }) {
       date: new Date().toISOString(),
       hands: [],
       rules: normalizeTableRules(rules),
+      bankrollStart: 1000,
     });
   };
 
-  const endSession = () => {
+  const endSession = (bankrollEnd?: number): string | null => {
     if (activeSession && activeSession.hands.length > 0) {
-      saveHistory([activeSession, ...history]);
+      const finished = { ...activeSession, bankrollEnd: bankrollEnd ?? activeSession.bankrollEnd };
+      saveHistory([finished, ...history]);
+      setActiveSession(null);
+      return finished.id;
     }
     setActiveSession(null);
+    return null;
   };
 
   const recordHand = (hand: HandRecord) => {

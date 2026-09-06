@@ -8,7 +8,8 @@
     "build": "node scripts/build.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "validate:strategy": "node scripts/validate-strategy.js"
+    "validate:strategy": "node scripts/validate-strategy.js",
+    "validate:game": "node --experimental-strip-types scripts/validate-game.ts"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

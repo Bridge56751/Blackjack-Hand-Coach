@@ -1,457 +1,105 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
-import { useCoach, HandRecord, Decision, getSessionStats } from '@/lib/context';
-import { getBasicStrategy, getActionName, Action, getSoftTotal } from '@/lib/strategy';
-import { useColors } from '@/hooks/useColors';
-import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
-import { rulesSummary } from '@/lib/rules';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import { useCoach, Decision } from '@/lib/context';
+import { getBasicStrategy, Action } from '@/lib/strategy';
+import { useColors } from '@/hooks/useColors';
+import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealerShouldHit, draw, handTotal, isBlackjack, isRed, settleHand } from '@/lib/game';
 
-const CARD_VALUES = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'A'];
-const ACTIONS: Action[] = ['H', 'S', 'D', 'P', 'R'];
+type Phase = 'betting' | 'playing' | 'settled';
+const chips = [5, 10, 25, 100];
+const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
+const buzz = (kind: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => { if (Platform.OS !== 'web') Haptics.impactAsync(kind); };
 
 export default function SessionScreen() {
   const { activeSession, endSession, recordHand } = useCoach();
-  const colors = useColors();
-  const router = useRouter();
-  const insets = useSafeAreaInsets();
-
-  const [dealerCard, setDealerCard] = useState<string | null>(null);
-  const [playerCards, setPlayerCards] = useState<string[]>([]);
-  const [decisions, setDecisions] = useState<Decision[]>([]);
-  
-  const [activeSelection, setActiveSelection] = useState<'dealer' | 'player'>('dealer');
-  
-  const [feedback, setFeedback] = useState<{ isCorrect: boolean; correctAction: Action; chosenAction: Action } | null>(null);
-  const [askingOutcome, setAskingOutcome] = useState(false);
-
-  const { total } = getSoftTotal(playerCards);
-  const isBusted = total > 21;
-
-  useEffect(() => {
-    if (!activeSession) {
-      router.replace('/');
-    }
-  }, [activeSession]);
-
-  if (!activeSession) return null;
-
-  const currentStats = getSessionStats(activeSession);
-  const currentAcc = currentStats.total === 0 ? 100 : Math.round(currentStats.accuracy * 100);
-
-  const handleCardTap = (val: string) => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (feedback || askingOutcome) return; 
-
-    if (activeSelection === 'dealer') {
-      setDealerCard(val);
-      setActiveSelection('player');
-    } else {
-      const newCards = [...playerCards, val];
-      setPlayerCards(newCards);
-      
-      const newTotal = getSoftTotal(newCards).total;
-      if (newTotal > 21) {
-        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setAskingOutcome(true);
-      }
-    }
+  const colors = useColors(); const router = useRouter(); const insets = useSafeAreaInsets();
+  const rules = activeSession?.rules;
+  const [bankroll, setBankroll] = useState(1000); const [bet, setBet] = useState(0); const [lastBet, setLastBet] = useState(25);
+  const [shoe, setShoe] = useState<Card[]>(() => createShoe(rules?.decks ?? 6));
+  const [dealer, setDealer] = useState<Card[]>([]); const [hands, setHands] = useState<GameHand[]>([]);
+  const [active, setActive] = useState(0); const [phase, setPhase] = useState<Phase>('betting');
+  const decisionsRef = useRef<Decision[]>([]);
+  const endingRef = useRef(false);
+  const [message, setMessage] = useState('Place your wager');
+  useEffect(() => { if (!activeSession && !endingRef.current) router.replace('/'); }, [activeSession, router]);
+  const current = hands[active]; const total = current ? handTotal(current.cards) : { total: 0, soft: false };
+  const used = (rules?.decks ?? 6) * 52 - shoe.length;
+  const dealDraw = (cards: Card[], currentShoe: Card[]) => { const next = draw(currentShoe); return { cards: [...cards, next.card], shoe: next.shoe }; };
+  const addDecision = (action: Action, hand: GameHand) => {
+    if (!rules || !dealer[0]) return;
+    const cards = hand.cards.map(cardRankForStrategy); const up = cardRankForStrategy(dealer[0]);
+    const correct = getBasicStrategy(cards, up, rules);
+    const entry = { id: uid(), playerCards: cards, dealerCard: up, chosen: action, correct, isCorrect: correct === action };
+    decisionsRef.current = [...decisionsRef.current, entry];
   };
-
-  const handleAction = (action: Action) => {
-    if (!dealerCard || playerCards.length < 2) return;
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    const correct = getBasicStrategy(playerCards, dealerCard, activeSession.rules);
-    const isCorrect = action === correct;
-    
-    const decision: Decision = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      dealerCard,
-      playerCards: [...playerCards],
-      chosen: action,
-      correct,
-      isCorrect
-    };
-    
-    setDecisions([...decisions, decision]);
-    setFeedback({ isCorrect, correctAction: correct, chosenAction: action });
-    
-    if (Platform.OS !== 'web') {
-      if (isCorrect) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
+  const settle = (finalHands: GameHand[], initialDealer: Card[], currentShoe: Card[]) => {
+    let dealerCards = initialDealer;
+    const needDealer = finalHands.some(h => !h.surrendered && handTotal(h.cards).total <= 21 && !isBlackjack(h));
+    if (needDealer) while (dealerShouldHit(dealerCards, rules!)) { const next = dealDraw(dealerCards, currentShoe); dealerCards = next.cards; currentShoe = next.shoe; }
+    const resolved = finalHands.map(hand => ({ ...hand, ...settleHand(hand, dealerCards) }));
+    const credit = resolved.reduce((sum, hand) => sum + settleHand(hand, dealerCards).credit, 0);
+    const totalBet = resolved.reduce((sum, hand) => sum + hand.bet, 0);
+    const net = credit - totalBet; setBankroll(value => value + credit); setDealer(dealerCards); setHands(resolved); setShoe(currentShoe); setPhase('settled');
+    const outcome = net > 0 ? 'Win' : net < 0 ? 'Loss' : 'Push';
+    recordHand({ id: uid(), decisions: decisionsRef.current, outcome, bet: totalBet, netChange: net, dealerCards: dealerCards.map(cardLabel), playerHands: resolved.map(h => ({ cards: h.cards.map(cardLabel), bet: h.bet, outcome: h.outcome!, netChange: settleHand(h, dealerCards).credit - h.bet })) });
+    setMessage(net > 0 ? `You collect +$${credit - totalBet}` : net < 0 ? `Table takes $${Math.abs(net)}` : 'Push — wager returned');
+    buzz(net >= 0 ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light);
+  };
+  const advance = (updated: GameHand[], shoeNow: Card[], index: number) => {
+    const next = updated.findIndex((hand, i) => i > index && !hand.surrendered && handTotal(hand.cards).total <= 21 && (!hand.splitAces || canSplit(hand, rules!, updated.length)));
+    if (next >= 0) { setHands(updated); setShoe(shoeNow); setActive(next); return; }
+    settle(updated, dealer, shoeNow);
+  };
+  const deal = () => {
+    if (!rules || bet <= 0 || bet > bankroll) return;
+    let fresh = shoe.length < Math.round(rules.decks * 52 * .28) ? createShoe(rules.decks) : shoe;
+    let a = draw(fresh); const playerOne = a.card; a = draw(a.shoe); const up = a.card; a = draw(a.shoe); const playerTwo = a.card; a = draw(a.shoe); const hole = a.card;
+    const hand: GameHand = { id: uid(), cards: [playerOne, playerTwo], bet, doubled: false, surrendered: false, splitAces: false, fromSplit: false };
+    setBankroll(value => value - bet); setLastBet(bet); setBet(0); setDealer([up, hole]); setHands([hand]); setShoe(a.shoe); setActive(0); decisionsRef.current = []; setPhase('playing'); setMessage('Your move');
+    buzz(Haptics.ImpactFeedbackStyle.Medium);
+    if (isBlackjack(hand) || handTotal([up, hole]).total === 21) setTimeout(() => settle([hand], [up, hole], a.shoe), 260);
+  };
+  const act = (action: Action) => {
+    if (!current || !rules || phase !== 'playing') return;
+    addDecision(action, current); buzz(Haptics.ImpactFeedbackStyle.Medium);
+    if (action === 'H') { if (current.splitAces) return; const next = dealDraw(current.cards, shoe); const updated = hands.map((h, i) => i === active ? { ...h, cards: next.cards } : h); if (handTotal(next.cards).total > 21) advance(updated, next.shoe, active); else { setHands(updated); setShoe(next.shoe); } return; }
+    if (action === 'S') { advance(hands, shoe, active); return; }
+    if (action === 'R') { const updated = hands.map((h, i) => i === active ? { ...h, surrendered: true } : h); advance(updated, shoe, active); return; }
+    if (action === 'D') { if (bankroll < current.bet) return; const next = dealDraw(current.cards, shoe); setBankroll(v => v - current.bet); const updated = hands.map((h, i) => i === active ? { ...h, cards: next.cards, bet: h.bet * 2, doubled: true } : h); advance(updated, next.shoe, active); return; }
+    if (action === 'P') {
+      if (bankroll < current.bet || !canSplit(current, rules, hands.length)) return;
+      let a = draw(shoe); let b = draw(a.shoe); const aces = current.cards[0].rank === 'A';
+      const left: GameHand = { ...current, id: uid(), cards: [current.cards[0], a.card], fromSplit: true, splitAces: aces };
+      const right: GameHand = { ...current, id: uid(), cards: [current.cards[1], b.card], fromSplit: true, splitAces: aces };
+      const updated = [...hands.slice(0, active), left, right, ...hands.slice(active + 1)]; setBankroll(v => v - current.bet);
+      if (aces) advance(updated, b.shoe, active - 1); else { setHands(updated); setShoe(b.shoe); }
     }
   };
-
-  const handleFeedbackContinue = () => {
-    if (!feedback) return;
-    const action = feedback.chosenAction;
-    setFeedback(null);
-    
-    if (action === 'H' && !isBusted) {
-      setActiveSelection('player');
-    } else {
-      setAskingOutcome(true);
-    }
+  const newHand = () => { setDealer([]); setHands([]); decisionsRef.current = []; setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'Place your wager' : 'Your stake is empty'); };
+  const addChip = (amount: number) => { if (phase === 'betting' && bet + amount <= bankroll) { setBet(v => v + amount); buzz(); } };
+  const end = () => {
+    endingRef.current = true;
+    const id = endSession(bankroll);
+    if (id) router.replace(`/report/${id}`);
+    else router.replace('/');
   };
-
-  const handleOutcome = (outcome: HandRecord['outcome']) => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    recordHand({
-      id: Date.now().toString() + Math.random().toString(36).substring(2, 9),
-      decisions,
-      outcome
-    });
-    setDealerCard(null);
-    setPlayerCards([]);
-    setDecisions([]);
-    setAskingOutcome(false);
-    setActiveSelection('dealer');
-  };
-
-  const onEndSession = () => {
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    endSession();
-    router.back();
-  };
-
-  const isFirstDecision = playerCards.length === 2;
-  const canSplit = isFirstDecision && playerCards[0] === playerCards[1];
-  const canDouble = isFirstDecision && (activeSession.rules?.doubleRule === 'any-two' || (activeSession.rules?.doubleRule === 'nine-eleven' && total >= 9 && total <= 11) || (activeSession.rules?.doubleRule === 'ten-eleven' && total >= 10 && total <= 11));
-  const canSurrender = isFirstDecision && activeSession.rules?.surrender === 'late';
-  
-  const showActions = dealerCard && playerCards.length >= 2 && !isBusted && !feedback && !askingOutcome;
-  
-  const paddingTop = Math.max(insets.top, 20) + (Platform.OS === 'web' ? 20 : 0);
-  const paddingBottom = Math.max(insets.bottom, 24) + (Platform.OS === 'web' ? 34 : 0);
-
-  return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { paddingTop }]}>
-        <TouchableOpacity testID="end-session" onPress={onEndSession} style={styles.headerBtn}>
-          <Text style={[styles.headerBtnText, { color: colors.destructive }]}>End Session</Text>
-        </TouchableOpacity>
-        <Text style={[styles.headerStats, { color: colors.mutedForeground }]}>
-          Hand {activeSession.hands.length + 1}  •  {currentAcc}% Acc
-        </Text>
-      </View>
-      <View style={[styles.rulesBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
-        <Feather name="sliders" size={13} color={colors.primary} />
-        <Text style={[styles.rulesBarText, { color: colors.primary }]}>{rulesSummary(activeSession.rules)}</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false} keyboardShouldPersistTaps="handled">
-        
-        {/* Table Area */}
-        <View style={styles.tableArea}>
-          {/* Dealer Card */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Dealer Up-Card</Text>
-            <TouchableOpacity 
-              activeOpacity={0.8}
-              onPress={() => !askingOutcome && !feedback && setActiveSelection('dealer')}
-              testID="dealer-card-slot"
-              style={[
-                styles.cardSlot, 
-                { borderColor: colors.border },
-                activeSelection === 'dealer' && !askingOutcome && !feedback && { borderColor: colors.primary, borderWidth: 2 }
-              ]}
-            >
-              {dealerCard ? (
-                <Animated.View entering={FadeIn.duration(200)} style={[styles.card, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.cardText, { color: colors.cardForeground }]}>{dealerCard}</Text>
-                </Animated.View>
-              ) : (
-                <Text style={[styles.placeholderText, { color: colors.mutedForeground }]}>Tap to select</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Player Cards */}
-          <View style={[styles.section, { marginTop: 32 }]}>
-            <View style={styles.rowBetween}>
-              <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>Your Hand</Text>
-              {total > 0 && <Text style={[styles.totalText, { color: colors.foreground }]}>{total}</Text>}
-            </View>
-            <TouchableOpacity 
-              activeOpacity={1}
-              onPress={() => !askingOutcome && !feedback && setActiveSelection('player')}
-              testID="player-card-zone"
-              style={[
-                styles.playerZone,
-                activeSelection === 'player' && !askingOutcome && !feedback && { borderColor: colors.primary, borderWidth: 2 }
-              ]}
-            >
-              {playerCards.length === 0 ? (
-                <Text style={[styles.placeholderText, { color: colors.mutedForeground }]}>Select cards below</Text>
-              ) : (
-                <View style={styles.cardsRow}>
-                  {playerCards.map((c, i) => (
-                    <Animated.View key={i} entering={FadeIn.duration(200)} style={[styles.card, { backgroundColor: colors.card, marginLeft: i > 0 ? -16 : 0 }]}>
-                      <Text style={[styles.cardText, { color: colors.cardForeground }]}>{c}</Text>
-                    </Animated.View>
-                  ))}
-                  {isBusted && (
-                    <Animated.View entering={FadeIn} style={styles.bustBadge}>
-                      <Text style={styles.bustText}>BUST</Text>
-                    </Animated.View>
-                  )}
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Interaction Area */}
-        <View style={[styles.interactionArea, { paddingBottom }]}>
-          
-          {feedback ? (
-            <Animated.View entering={SlideInDown} exiting={SlideOutDown} style={[styles.feedbackPanel, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.feedbackHeader}>
-                {feedback.isCorrect ? (
-                  <Feather name="check-circle" size={32} color={colors.primary} />
-                ) : (
-                  <Feather name="x-circle" size={32} color={colors.destructive} />
-                )}
-                <Text style={[styles.feedbackTitle, { color: feedback.isCorrect ? colors.primary : colors.destructive }]}>
-                  {feedback.isCorrect ? 'Correct!' : 'Mistake'}
-                </Text>
-              </View>
-              {!feedback.isCorrect && (
-                <Text style={[styles.feedbackSub, { color: colors.foreground }]}>
-                  For these selected rules, basic strategy says to {getActionName(feedback.correctAction)}.
-                </Text>
-              )}
-              <TouchableOpacity 
-                style={[styles.btn, { backgroundColor: colors.primary, marginTop: 24 }]} 
-                onPress={handleFeedbackContinue}
-              >
-                <Text style={[styles.btnText, { color: colors.primaryForeground }]}>Continue</Text>
-              </TouchableOpacity>
-            </Animated.View>
-          ) : askingOutcome ? (
-            <Animated.View entering={SlideInDown} exiting={SlideOutDown} style={styles.outcomePanel}>
-              <Text style={[styles.outcomeTitle, { color: colors.foreground }]}>Hand Outcome</Text>
-              <View style={styles.outcomeRow}>
-                {['Win', 'Loss', 'Push'].map((o) => (
-                  <TouchableOpacity 
-                    key={o}
-                    style={[styles.outcomeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
-                    testID={`outcome-${o.toLowerCase()}`}
-                    onPress={() => handleOutcome(o as HandRecord['outcome'])}
-                  >
-                    <Text style={[styles.outcomeBtnText, { color: colors.foreground }]}>{o}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {activeSession.rules?.surrender === 'late' && (
-                <TouchableOpacity testID="outcome-surrender" style={styles.surrenderLink} onPress={() => handleOutcome('Surrender')}>
-                  <Text style={[styles.surrenderText, { color: colors.mutedForeground }]}>Surrendered</Text>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-          ) : showActions ? (
-            <Animated.View entering={SlideInDown} exiting={FadeOut} style={styles.actionsGrid}>
-              <View style={styles.actionRow}>
-                <ActionBtn action="H" label="Hit" onPress={() => handleAction('H')} colors={colors} testID="action-hit" />
-                <ActionBtn action="S" label="Stand" onPress={() => handleAction('S')} colors={colors} testID="action-stand" />
-              </View>
-              <View style={styles.actionRow}>
-                <ActionBtn action="D" label="Double" onPress={() => handleAction('D')} colors={colors} disabled={!canDouble} testID="action-double" />
-                <ActionBtn action="P" label="Split" onPress={() => handleAction('P')} colors={colors} disabled={!canSplit} testID="action-split" />
-              </View>
-              {canSurrender && (
-                <TouchableOpacity testID="action-surrender" style={styles.surrenderLink} onPress={() => handleAction('R')}>
-                  <Text style={[styles.surrenderText, { color: colors.mutedForeground }]}>Surrender</Text>
-                </TouchableOpacity>
-              )}
-            </Animated.View>
-          ) : (
-            <Animated.View entering={FadeIn} exiting={FadeOut} style={styles.cardInputGrid}>
-              <View style={styles.gridRow}>
-                {CARD_VALUES.slice(0, 5).map(v => (
-                  <CardInputBtn key={v} val={v} onPress={() => handleCardTap(v)} colors={colors} />
-                ))}
-              </View>
-              <View style={styles.gridRow}>
-                {CARD_VALUES.slice(5, 10).map(v => (
-                  <CardInputBtn key={v} val={v} onPress={() => handleCardTap(v)} colors={colors} />
-                ))}
-              </View>
-              <View style={styles.instructionRow}>
-                <Text style={[styles.instructionText, { color: colors.mutedForeground }]}>
-                  {activeSelection === 'dealer' ? 'Select Dealer Up-Card' : 'Add Card to Your Hand'}
-                </Text>
-                {activeSelection === 'player' && dealerCard && (
-                  <TouchableOpacity onPress={() => setActiveSelection('dealer')}>
-                    <Text style={[styles.switchLink, { color: colors.primary }]}>Edit Dealer</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </Animated.View>
-          )}
-
-        </View>
-      </ScrollView>
+  if (!activeSession || !rules) return null;
+  const canD = current && bankroll >= current.bet && canDouble(current, rules); const canP = current && bankroll >= current.bet && canSplit(current, rules, hands.length);
+  const canR = current && current.cards.length === 2 && !current.fromSplit && rules.surrender === 'late';
+  return <View style={[styles.page, { backgroundColor: colors.background, paddingTop: Math.max(insets.top, 16) + (Platform.OS === 'web' ? 50 : 0) }]}>
+    <View style={styles.header}><TouchableOpacity testID="end-session" onPress={end}><Text style={[styles.end, { color: colors.mutedForeground }]}>END SESSION</Text></TouchableOpacity><View style={styles.bank}><Text style={[styles.micro, { color: colors.mutedForeground }]}>BANKROLL</Text><Text style={[styles.money, { color: colors.primary }]}>${bankroll}</Text></View><Text style={[styles.shoe, { color: colors.mutedForeground }]}>{used} dealt</Text></View>
+    <View style={[styles.table, { borderColor: colors.border }]}><View style={[styles.arc, { borderColor: colors.primary }]} /><Text style={[styles.dealerLabel, { color: colors.mutedForeground }]}>DEALER {phase === 'settled' && `• ${handTotal(dealer).total}`}</Text><CardRow cards={dealer} hidden={phase === 'playing'} colors={colors} />
+      <View style={styles.centerMark}><Text style={[styles.markText, { color: colors.primary }]}>BLACKJACK COACH</Text><Text style={[styles.markSub, { color: colors.mutedForeground }]}>PLAY THE HAND</Text></View>
+      <View style={styles.handZone}>{hands.map((hand, index) => <View key={hand.id} style={[styles.handBlock, index === active && phase === 'playing' && { borderColor: colors.primary }]}><View style={styles.handMeta}><Text style={[styles.playerLabel, { color: colors.mutedForeground }]}>HAND {hands.length > 1 ? index + 1 : ''} • ${hand.bet}</Text><Text style={[styles.total, { color: colors.foreground }]}>{handTotal(hand.cards).total}{handTotal(hand.cards).soft ? ' soft' : ''}</Text></View><CardRow cards={hand.cards} colors={colors} />{phase === 'settled' && <Text style={[styles.outcome, { color: hand.outcome === 'Loss' || hand.outcome === 'Bust' ? colors.destructive : colors.primary }]}>{hand.outcome}</Text>}</View>)}</View>
     </View>
-  );
+    <View style={[styles.console, { paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === 'web' ? 26 : 0) }]}>{phase === 'betting' ? <>{bankroll < 5 ? <><Text style={[styles.prompt, { color: colors.mutedForeground }]}>Your practice stake is empty.</Text><TouchableOpacity testID="reset-bankroll" onPress={() => { setBankroll(1000); setMessage('Fresh practice stake'); }} style={[styles.deal, { backgroundColor: colors.primary }]}><Text style={[styles.dealText, { color: colors.primaryForeground }]}>RESET BANKROLL</Text></TouchableOpacity></> : <><View style={styles.betline}><Text style={[styles.micro, { color: colors.mutedForeground }]}>ON THE FELT</Text><Text style={[styles.bet, { color: colors.foreground }]}>${bet || '—'}</Text></View><View style={styles.chips}>{chips.map(amount => <TouchableOpacity key={amount} testID={`chip-${amount}`} disabled={bet + amount > bankroll} onPress={() => addChip(amount)} style={[styles.chip, { borderColor: colors.primary }, bet + amount > bankroll && styles.disabled]}><Text style={[styles.chipText, { color: colors.primary }]}>${amount}</Text></TouchableOpacity>)}</View><View style={styles.betActions}><TouchableOpacity onPress={() => setBet(0)} disabled={!bet}><Text style={[styles.minor, { color: colors.mutedForeground }]}>CLEAR</Text></TouchableOpacity><TouchableOpacity onPress={() => setBet(Math.min(lastBet, bankroll))} disabled={!lastBet || lastBet > bankroll}><Text style={[styles.minor, { color: colors.mutedForeground }]}>REPEAT ${lastBet}</Text></TouchableOpacity></View><TouchableOpacity testID="deal-button" disabled={!bet} onPress={deal} style={[styles.deal, { backgroundColor: colors.primary }, !bet && styles.disabled]}><Feather name="play" size={19} color={colors.primaryForeground}/><Text style={[styles.dealText, { color: colors.primaryForeground }]}>DEAL</Text></TouchableOpacity></>}</> : phase === 'playing' ? <><Text style={[styles.prompt, { color: colors.mutedForeground }]}>{message}</Text><View style={styles.actionRow}><TableAction testID="action-hit" label="HIT" icon="plus" disabled={!!current?.splitAces} onPress={() => act('H')} colors={colors}/><TableAction testID="action-stand" label="STAND" icon="check" onPress={() => act('S')} colors={colors}/><TableAction testID="action-double" label="DOUBLE" icon="corner-down-right" disabled={!canD} onPress={() => act('D')} colors={colors}/><TableAction testID="action-split" label="SPLIT" icon="git-branch" disabled={!canP} onPress={() => act('P')} colors={colors}/></View>{canR && <TouchableOpacity testID="action-surrender" onPress={() => act('R')}><Text style={[styles.surrender, { color: colors.mutedForeground }]}>SURRENDER THIS HAND</Text></TouchableOpacity>}</> : <Animated.View entering={FadeInUp.duration(280)} style={styles.settle}><Text style={[styles.settleTitle, { color: colors.foreground }]}>{message}</Text><TouchableOpacity testID="next-hand" onPress={newHand} style={[styles.deal, { backgroundColor: colors.primary }]}><Text style={[styles.dealText, { color: colors.primaryForeground }]}>NEXT HAND</Text><Feather name="arrow-right" size={19} color={colors.primaryForeground}/></TouchableOpacity></Animated.View>}</View>
+  </View>;
 }
-
-function CardInputBtn({ val, onPress, colors }: { val: string, onPress: () => void, colors: any }) {
-  return (
-    <TouchableOpacity 
-      testID={`card-input-${val}`} style={[styles.inputBtn, { backgroundColor: colors.card, borderColor: colors.border }]} 
-      onPress={onPress}
-    >
-      <Text style={[styles.inputBtnText, { color: colors.cardForeground }]}>{val}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function ActionBtn({ action, label, onPress, colors, disabled, testID }: { action: Action, label: string, onPress: () => void, colors: any, disabled?: boolean, testID?: string }) {
-  return (
-    <TouchableOpacity 
-      testID={testID ?? `action-${action}`} style={[
-        styles.actionBtn, 
-        { backgroundColor: colors.primary },
-        disabled && { opacity: 0.3 }
-      ]} 
-      onPress={onPress}
-      disabled={disabled}
-    >
-      <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  headerBtn: { padding: 8, marginLeft: -8 },
-  headerBtnText: { fontSize: 16, fontFamily: 'Inter_500Medium' },
-  headerStats: { fontSize: 14, fontFamily: 'Inter_500Medium' },
-  rulesBar: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4 },
-  rulesBarText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
-  scrollContent: { flex: 1, justifyContent: 'space-between' },
-  tableArea: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    alignItems: 'center'
-  },
-  section: { width: '100%', alignItems: 'center' },
-  sectionTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  cardSlot: {
-    width: 72,
-    height: 104,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  placeholderText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
-  card: {
-    width: 72,
-    height: 104,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)'
-  },
-  cardText: { fontSize: 32, fontFamily: 'Inter_700Bold' },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', paddingHorizontal: 32 },
-  totalText: { fontSize: 16, fontFamily: 'Inter_700Bold' },
-  playerZone: {
-    minHeight: 120,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    padding: 8
-  },
-  cardsRow: { flexDirection: 'row', alignItems: 'center' },
-  bustBadge: {
-    position: 'absolute',
-    right: -20,
-    top: -10,
-    backgroundColor: '#E63946',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-    transform: [{ rotate: '15deg' }]
-  },
-  bustText: { color: '#FFF', fontSize: 12, fontFamily: 'Inter_700Bold' },
-  interactionArea: {
-    width: '100%',
-    paddingHorizontal: 16,
-  },
-  cardInputGrid: { gap: 8 },
-  gridRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
-  inputBtn: {
-    flex: 1,
-    aspectRatio: 0.8,
-    borderRadius: 8,
-    borderWidth: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputBtnText: { fontSize: 24, fontFamily: 'Inter_600SemiBold' },
-  instructionRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingHorizontal: 8 },
-  instructionText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
-  switchLink: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
-  actionsGrid: { gap: 12 },
-  actionRow: { flexDirection: 'row', gap: 12 },
-  actionBtn: {
-    flex: 1,
-    height: 64,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  actionBtnText: { fontSize: 20, fontFamily: 'Inter_700Bold' },
-  surrenderLink: { alignSelf: 'center', marginTop: 16, padding: 8 },
-  surrenderText: { fontSize: 16, fontFamily: 'Inter_500Medium', textDecorationLine: 'underline' },
-  feedbackPanel: {
-    padding: 24,
-    borderRadius: 16,
-    borderWidth: 1,
-    alignItems: 'center'
-  },
-  feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
-  feedbackTitle: { fontSize: 28, fontFamily: 'Inter_700Bold' },
-  feedbackSub: { fontSize: 16, fontFamily: 'Inter_500Medium', textAlign: 'center' },
-  btn: { width: '100%', height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  btnText: { fontSize: 18, fontFamily: 'Inter_600SemiBold' },
-  outcomePanel: { gap: 16 },
-  outcomeTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold', textAlign: 'center', marginBottom: 8 },
-  outcomeRow: { flexDirection: 'row', gap: 12 },
-  outcomeBtn: {
-    flex: 1,
-    height: 56,
-    borderWidth: 1,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-  outcomeBtnText: { fontSize: 16, fontFamily: 'Inter_600SemiBold' },
-});
+function CardRow({ cards, hidden, colors }: { cards: Card[]; hidden?: boolean; colors: any }) { return <View style={styles.cardRow}>{cards.map((card, i) => <Animated.View entering={FadeInDown.delay(i * 90).duration(220)} key={card.id} style={[styles.card, { backgroundColor: hidden && i === 1 ? colors.secondary : '#F7F0DD', marginLeft: i ? -28 : 0 }]}>{hidden && i === 1 ? <Feather name="layers" size={25} color={colors.primary}/> : <><Text style={[styles.rank, { color: isRed(card) ? colors.destructive : '#172019' }]}>{card.rank === 'T' ? '10' : card.rank}</Text><Text style={[styles.suit, { color: isRed(card) ? colors.destructive : '#172019' }]}>{card.suit}</Text></>}</Animated.View>)}</View>; }
+function TableAction({ label, icon, onPress, disabled, colors, testID }: { label: string; icon: keyof typeof Feather.glyphMap; onPress: () => void; disabled?: boolean; colors: any; testID: string }) { return <TouchableOpacity testID={testID} disabled={disabled} onPress={onPress} style={[styles.action, { backgroundColor: colors.card, borderColor: colors.border }, disabled && styles.disabled]}><Feather name={icon} size={16} color={colors.primary}/><Text style={[styles.actionText, { color: colors.foreground }]}>{label}</Text></TouchableOpacity>; }
+const styles = StyleSheet.create({ page:{flex:1}, header:{height:54,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},end:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1},bank:{alignItems:'center'},micro:{fontFamily:'Inter_700Bold',fontSize:9,letterSpacing:1.4},money:{fontFamily:'Inter_700Bold',fontSize:22},shoe:{fontFamily:'Inter_500Medium',fontSize:11,width:45,textAlign:'right'},table:{flex:1,marginHorizontal:10,borderRadius:32,borderWidth:1,overflow:'hidden',paddingTop:16,alignItems:'center',backgroundColor:'rgba(0,0,0,.13)'},arc:{position:'absolute',top:-112,width:300,height:180,borderRadius:150,borderWidth:1,opacity:.65},dealerLabel:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1.4,marginBottom:7},cardRow:{flexDirection:'row',minHeight:91,justifyContent:'center'},card:{width:62,height:88,borderRadius:7,padding:7,justifyContent:'space-between',shadowColor:'#00160b',shadowOpacity:.35,shadowRadius:5,elevation:4},rank:{fontFamily:'Inter_700Bold',fontSize:20},suit:{fontSize:19,alignSelf:'flex-end'},centerMark:{alignItems:'center',marginTop:15,marginBottom:10},markText:{fontFamily:'Inter_700Bold',fontSize:12,letterSpacing:2.3},markSub:{fontFamily:'Inter_500Medium',fontSize:9,letterSpacing:1.4,marginTop:4},handZone:{width:'100%',paddingHorizontal:13,marginTop:'auto',paddingBottom:15},handBlock:{borderWidth:1,borderColor:'transparent',borderRadius:13,alignItems:'center',padding:6,marginTop:4},handMeta:{width:'94%',flexDirection:'row',justifyContent:'space-between',marginBottom:2},playerLabel:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1.2},total:{fontFamily:'Inter_700Bold',fontSize:13},outcome:{fontFamily:'Inter_700Bold',fontSize:11,letterSpacing:1.2,marginTop:-3},console:{paddingHorizontal:18,paddingTop:12,minHeight:185},betline:{flexDirection:'row',justifyContent:'space-between',alignItems:'baseline'},bet:{fontFamily:'Inter_700Bold',fontSize:25},chips:{flexDirection:'row',justifyContent:'space-between',marginTop:9},chip:{width:54,height:54,borderRadius:27,borderWidth:3,alignItems:'center',justifyContent:'center',borderStyle:'dashed'},chipText:{fontFamily:'Inter_700Bold',fontSize:12},betActions:{flexDirection:'row',justifyContent:'space-between',marginTop:10,paddingHorizontal:5},minor:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1},deal:{height:52,borderRadius:10,marginTop:12,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:9},dealText:{fontFamily:'Inter_700Bold',fontSize:15,letterSpacing:1.7},disabled:{opacity:.3},prompt:{fontFamily:'Inter_600SemiBold',fontSize:12,textAlign:'center',letterSpacing:.8,marginBottom:9},actionRow:{flexDirection:'row',gap:7},action:{flex:1,height:55,borderWidth:1,borderRadius:9,alignItems:'center',justifyContent:'center',gap:4},actionText:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:.6},surrender:{fontFamily:'Inter_700Bold',fontSize:10,letterSpacing:1,textAlign:'center',marginTop:11},settle:{alignItems:'center'},settleTitle:{fontFamily:'Inter_700Bold',fontSize:18,textAlign:'center'} });

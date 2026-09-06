@@ -46,11 +46,13 @@ export default function ReportScreen() {
               <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}% Accuracy</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} / {stats.total} correct decisions</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} hands played</Text>
+               {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${session.bankrollStart ?? 1000} → ${session.bankrollEnd ?? session.bankrollStart ?? 1000}</Text>}
                <Text style={[styles.tableName, { color: colors.foreground }]}>{session.rules?.name ?? 'Vegas 6 Deck'}</Text>
                <View style={[styles.rulesPill, { borderColor: colors.border }]}><Text style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)}</Text></View>
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
+            {session.hands.some(hand => hand.playerHands?.length) && <View style={[styles.roundSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>{session.hands.map((hand, index) => <Text key={hand.id} style={[styles.roundText, { color: colors.mutedForeground }]}>Hand {index + 1} · ${hand.bet ?? 0} · {hand.netChange && hand.netChange > 0 ? '+' : ''}{hand.netChange ?? 0} {hand.playerHands?.length ? `(${hand.playerHands.map(item => item.outcome).join(' / ')})` : ''}</Text>)}</View>}
             {mistakes.length === 0 && (
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="award" size={40} color={colors.primary} style={{ marginBottom: 12 }} />
@@ -128,6 +130,8 @@ const styles = StyleSheet.create({
   emptyState: { padding: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
   emptySub: { fontSize: 14, fontFamily: 'Inter_400Regular' },
+  roundSummary: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 22, gap: 6 },
+  roundText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
   mistakeCard: {
     borderRadius: 12,
     borderWidth: 1,
