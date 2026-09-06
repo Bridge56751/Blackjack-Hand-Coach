@@ -245,8 +245,7 @@ export default function SessionScreen() {
 
   return (
     <View style={styles.page}>
-      <LinearGradient colors={['#163d38', '#0b211f']} style={StyleSheet.absoluteFill} />
-      <View pointerEvents="none" style={styles.outerVignette} />
+      <LinearGradient colors={['#185a2d', '#0d3619']} style={StyleSheet.absoluteFill} />
 
       {/* Blackjack Coach header */}
       <View style={[styles.tableHeader, { paddingTop: Math.max(insets.top, 10) }]}>
@@ -272,16 +271,6 @@ export default function SessionScreen() {
 
       {/* Table Area */}
       <View style={styles.tableCenter}>
-        <View pointerEvents="none" style={styles.tableRail}>
-          <View style={styles.tableRailHighlight} />
-          <View style={styles.tableFeltInset} />
-        </View>
-        <View pointerEvents="none" style={styles.feltGrain} />
-        <View pointerEvents="none" style={styles.dealerMarker}>
-          <View style={styles.dealerMarkerLine} />
-          <Text style={styles.dealerMarkerText}>DEALER</Text>
-          <View style={styles.dealerMarkerLine} />
-        </View>
         <View testID="hint-panel" style={styles.hintPanel}>
           <Text style={styles.hintEyebrow}>BLACKJACK COACH</Text>
           {hintAction && hitStandOdds ? (
@@ -315,13 +304,13 @@ export default function SessionScreen() {
             <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
           </View>
         )}
-         <View style={styles.dealerArea}>
+        <View style={styles.dealerArea}>
           <View style={styles.cardRow}>
             {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={i === 1 && phase !== 'settled'} />)}
           </View>
         </View>
 
-         <View style={styles.tableRules}>
+        <View style={styles.tableRules}>
           <Text style={styles.rulesMain}>BLACKJACK PAYS 3 TO 2</Text>
           <Text style={styles.rulesSub}>{rules.dealerHitsSoft17 ? 'Dealer must hit on soft 17' : 'Dealer must stand on soft 17'}</Text>
           <View style={styles.rulesRibbon}>
@@ -333,7 +322,7 @@ export default function SessionScreen() {
 
         <View style={styles.spotsArea}>
            {phase === 'betting' ? (
-               <Animated.View entering={FadeInUp.duration(280)} style={[styles.bettingArc, isCompactTable && styles.bettingArcCompact, singleHandMode && styles.bettingArcSingle]}>
+              <Animated.View entering={FadeInUp.duration(280)} style={[styles.bettingArc, isCompactTable && styles.bettingArcCompact, singleHandMode && styles.bettingArcSingle]}>
                  <View pointerEvents="none" style={[styles.arcInlay, singleHandMode && styles.arcInlaySingle]}>
                    <View style={[styles.arcCaptionPlate, singleHandMode && styles.arcCaptionPlateSingle]}>
                      <Text style={styles.arcCaption}>{singleHandMode ? 'PLACE YOUR WAGER' : 'SELECT A POSITION · PLACE YOUR WAGER'}</Text>
@@ -344,8 +333,7 @@ export default function SessionScreen() {
                      const centered = availableBetSpots.length === 1 || i === 1;
                      return (
                      <TouchableOpacity testID={`bet-spot-${i + 1}`} key={i} activeOpacity={0.82} onPress={() => { setSelectedSpot(i); buzz(); }} style={[styles.betSeat, centered ? styles.betSeatCenter : styles.betSeatOuter, selectedSpot === i && styles.betSeatSelected]}>
-                        <View style={[styles.chipWell, centered && styles.chipWellCenter, selectedSpot === i && styles.chipWellSelected]}>
-                          <View pointerEvents="none" style={styles.chipWellNotches} />
+                       <View style={[styles.chipWell, centered && styles.chipWellCenter, selectedSpot === i && styles.chipWellSelected]}>
                          <View style={styles.chipWellInner}>
                            {bet ? <ChipStack amount={bet} size={centered ? 44 : 40} /> : <View style={styles.wellMarker}><Text style={styles.wellNumber}>{i + 1}</Text></View>}
                          </View>
@@ -386,8 +374,7 @@ export default function SessionScreen() {
       </View>
 
       {/* Bottom Dock Controls */}
-       <View style={[styles.bottomDock, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-         <View pointerEvents="none" style={styles.dockRailHighlight} />
+      <View style={[styles.bottomDock, { paddingBottom: Math.max(insets.bottom, 10) }]}>
          {phase === 'betting' && (
             <View style={styles.bettingControls}>
                <View style={styles.chipRack}>
@@ -500,14 +487,13 @@ function ActionButton({ id, label, color, icon, onPress, disabled, size = 'large
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#0b211f' },
-  outerVignette: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(1,12,12,0.22)' },
+  page: { flex: 1, backgroundColor: '#0d3619' },
   tableHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
     zIndex: 10,
   },
   headerExit: {
@@ -517,8 +503,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(225,190,119,0.4)',
-    backgroundColor: 'rgba(5,19,18,0.76)',
+    borderColor: 'rgba(217,197,143,0.38)',
+    backgroundColor: 'rgba(6,34,15,0.55)',
   },
   headerBrand: {
     position: 'absolute',
@@ -529,13 +515,13 @@ const styles = StyleSheet.create({
   },
   headerBrandMain: {
     fontFamily: 'Inter_700Bold',
-    color: '#f5e6c5',
+    color: '#f3f0e8',
     fontSize: 13,
     letterSpacing: 3,
   },
   headerBrandSub: {
     fontFamily: 'Inter_600SemiBold',
-    color: 'rgba(225,190,119,0.72)',
+    color: 'rgba(217,197,143,0.72)',
     fontSize: 7,
     letterSpacing: 1.1,
     marginTop: 3,
@@ -547,25 +533,18 @@ const styles = StyleSheet.create({
   headerBankrollDisabled: { opacity: 0.5 },
   headerBankrollLabel: {
     fontFamily: 'Inter_600SemiBold',
-    color: 'rgba(225,190,119,0.68)',
+    color: 'rgba(217,197,143,0.68)',
     fontSize: 7,
     letterSpacing: 1.2,
   },
   headerBankrollValue: {
     fontFamily: 'Inter_700Bold',
-    color: '#f5e6c5',
+    color: '#f3f0e8',
     fontSize: 15,
     marginTop: 1,
   },
-  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#e1be77', fontSize: 6, letterSpacing: .8, marginTop: 2 },
-  tableCenter: { flex: 1, justifyContent: 'flex-start', marginHorizontal: 7, borderTopLeftRadius: 28, borderTopRightRadius: 28, overflow: 'hidden' },
-  tableRail: { ...StyleSheet.absoluteFill, backgroundColor: '#38281e', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 2, borderColor: '#68503a' },
-  tableRailHighlight: { position: 'absolute', top: 4, left: 6, right: 6, height: 5, borderTopLeftRadius: 24, borderTopRightRadius: 24, backgroundColor: 'rgba(240,203,130,0.25)' },
-  tableFeltInset: { position: 'absolute', top: 13, left: 10, right: 10, bottom: 0, borderTopLeftRadius: 20, borderTopRightRadius: 20, backgroundColor: '#164b43', borderWidth: 1, borderColor: 'rgba(235,194,112,0.32)' },
-  feltGrain: { ...StyleSheet.absoluteFill, opacity: 0.18, borderTopLeftRadius: 22, borderTopRightRadius: 22, borderWidth: 1, borderColor: 'rgba(214,239,203,0.16)', borderStyle: 'dotted' },
-  dealerMarker: { position: 'absolute', top: 20, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 7, zIndex: 2 },
-  dealerMarkerLine: { width: 24, height: 1, backgroundColor: 'rgba(233,198,124,0.45)' },
-  dealerMarkerText: { fontFamily: 'Inter_700Bold', color: 'rgba(242,211,144,0.74)', fontSize: 7, letterSpacing: 2.2 },
+  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 6, letterSpacing: .8, marginTop: 2 },
+  tableCenter: { flex: 1, justifyContent: 'flex-start' },
   hintPanel: {
     position: 'absolute',
     top: 2,
@@ -578,7 +557,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: 'rgba(217,197,143,0.42)',
-    backgroundColor: 'rgba(8,35,32,0.92)',
+    backgroundColor: 'rgba(6,31,14,0.9)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.45,
@@ -611,17 +590,17 @@ const styles = StyleSheet.create({
   edgeNote: { fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: .65, color: 'rgba(243,240,232,0.45)', marginTop: 1 },
   dealerArea: {
     alignItems: 'center',
-    marginTop: 38,
+    marginTop: 30,
     minHeight: 110,
     zIndex: 5,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'center', minHeight: 110 },
-  tableRules: { alignItems: 'center', marginTop: 10, marginBottom: 8 },
+  tableRules: { alignItems: 'center', marginTop: 12, marginBottom: 10 },
   rulesMain: {
     fontFamily: 'Inter_700Bold',
-    fontSize: 17,
-    color: '#f5e6c5',
-    letterSpacing: 1.7,
+    fontSize: 20,
+    color: '#fff',
+    letterSpacing: 1,
     opacity: 0.9,
     textShadowColor: 'rgba(0,0,0,0.5)',
     textShadowOffset: { width: 1, height: 2 },
@@ -629,51 +608,50 @@ const styles = StyleSheet.create({
   },
   rulesSub: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    color: 'rgba(241,230,201,0.74)',
+    fontSize: 14,
+    color: '#e0e0e0',
     marginTop: 4,
     marginBottom: 8,
   },
   rulesRibbon: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20 },
-   ribbonLine: { flex: 1, height: 1, backgroundColor: 'rgba(225,190,119,0.72)', maxWidth: 40 },
+  ribbonLine: { flex: 1, height: 2, backgroundColor: '#d9b863', maxWidth: 40 },
   rulesInsurance: {
     fontFamily: 'Inter_700Bold',
-     fontSize: 10,
-     color: '#e1be77',
+    fontSize: 16,
+    color: '#d9b863',
     marginHorizontal: 12,
     letterSpacing: 1,
   },
-   spotsArea: { flex: 1, justifyContent: 'flex-end', paddingBottom: 10 },
-   bettingArc: { height: 170, justifyContent: 'flex-end', overflow: 'hidden' },
+   spotsArea: { flex: 1, justifyContent: 'flex-end', paddingBottom: 12 },
+   bettingArc: { height: 176, justifyContent: 'flex-end', overflow: 'hidden' },
    bettingArcCompact: { height: 154 },
    bettingArcSingle: { alignItems: 'center' },
    arcInlay: {
      position: 'absolute', left: 18, right: 18, bottom: 7, height: 126,
-      borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(231,196,121,0.64)',
+     borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(217,184,99,0.48)',
      borderTopLeftRadius: 180, borderTopRightRadius: 180,
-      backgroundColor: 'rgba(5,32,29,0.28)',
+     backgroundColor: 'rgba(5,31,14,0.13)',
    },
-    arcInlaySingle: { left: 0, right: 0, height: 124, borderWidth: 0, backgroundColor: 'transparent' },
+   arcInlaySingle: { left: 0, right: 0, height: 116, borderWidth: 0, backgroundColor: 'transparent' },
    arcCaptionPlate: {
-      position: 'absolute', top: -14, alignSelf: 'center', paddingHorizontal: 13, paddingVertical: 4,
-      borderRadius: 10, backgroundColor: '#123a35', borderWidth: 1, borderColor: 'rgba(225,190,119,0.22)',
+     position: 'absolute', top: 15, alignSelf: 'center', paddingHorizontal: 13, paddingVertical: 4,
+     borderRadius: 10, backgroundColor: '#0d3b1d',
    },
-    arcCaptionPlateSingle: { top: -14 },
-    arcCaption: { fontFamily: 'Inter_700Bold', color: 'rgba(240,213,151,0.92)', fontSize: 8, letterSpacing: 1.1 },
+   arcCaptionPlateSingle: { top: -14 },
+   arcCaption: { fontFamily: 'Inter_700Bold', color: 'rgba(235,209,137,0.88)', fontSize: 8, letterSpacing: 1.1 },
    bettingSpots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, paddingHorizontal: 24, paddingBottom: 16, zIndex: 2 },
    betSeat: { width: 88, alignItems: 'center' },
    betSeatOuter: { marginBottom: 2 },
    betSeatCenter: { marginBottom: 18 },
    betSeatSelected: { transform: [{ translateY: -3 }] },
    chipWell: {
-      width: 66, height: 66, borderRadius: 33, padding: 4, backgroundColor: 'rgba(4,29,27,0.78)',
-      borderWidth: 2, borderColor: 'rgba(231,196,121,0.62)', shadowColor: '#06180a',
+     width: 66, height: 66, borderRadius: 33, padding: 4, backgroundColor: 'rgba(6,32,14,0.72)',
+     borderWidth: 1.5, borderColor: 'rgba(217,184,99,0.52)', shadowColor: '#06180a',
      shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.45, shadowRadius: 4, elevation: 4,
    },
-    chipWellCenter: { width: 78, height: 78, borderRadius: 39, padding: 6 },
-    chipWellSelected: { borderColor: '#f0ce77', backgroundColor: 'rgba(16,61,53,0.96)', shadowColor: '#dfb75a', shadowOpacity: 0.28, shadowRadius: 6, elevation: 7 },
-    chipWellNotches: { ...StyleSheet.absoluteFill, borderRadius: 33, borderWidth: 3, borderColor: 'rgba(247,226,172,0.18)', borderStyle: 'dashed' },
-    chipWellInner: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 30, backgroundColor: 'rgba(0,0,0,0.16)' },
+   chipWellCenter: { width: 74, height: 74, borderRadius: 37, padding: 6 },
+   chipWellSelected: { borderColor: '#f0ce77', backgroundColor: 'rgba(35,72,30,0.84)', shadowColor: '#dfb75a', shadowOpacity: 0.28, shadowRadius: 6, elevation: 7 },
+   chipWellInner: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 30, backgroundColor: 'rgba(0,0,0,0.12)' },
    wellMarker: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
    wellNumber: { fontFamily: 'Inter_700Bold', fontSize: 9, color: 'rgba(235,209,137,0.62)' },
    seatReadout: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7, height: 16 },
@@ -692,17 +670,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold', color: '#ebd189', fontSize: 12, marginTop: 4, textTransform: 'uppercase',
     textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
-   bottomDock: { width: '100%', paddingHorizontal: 16, paddingTop: 12, backgroundColor: '#33251e', borderTopWidth: 2, borderTopColor: '#72563d' },
-   dockRailHighlight: { position: 'absolute', top: 2, left: 20, right: 20, height: 2, backgroundColor: 'rgba(241,204,130,0.38)' },
+  bottomDock: { width: '100%', paddingHorizontal: 16, paddingTop: 10, backgroundColor: 'transparent' },
   bettingControls: { alignItems: 'center', paddingTop: 10 },
-   chipRack: { flexDirection: 'row', justifyContent: 'center', gap: 14, marginBottom: 17 },
+  chipRack: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 20 },
   actionGrid: { alignItems: 'center', minHeight: 80, justifyContent: 'center' },
   actionRowPrimary: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   actionRowSecondary: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginBottom: 12 },
   btnWrapper: { alignItems: 'center', marginHorizontal: 4 },
   btnDisabled: { opacity: 0.4 },
   btnBody: {
-     borderRadius: 9, borderWidth: 2, borderColor: '#e7c479', alignItems: 'center', justifyContent: 'center',
+    borderRadius: 8, borderWidth: 2, borderColor: '#ebd189', alignItems: 'center', justifyContent: 'center',
     overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.5, shadowRadius: 4, elevation: 5,
   },
   btnHighlight: { position: 'absolute', top: 0, left: 0, right: 0, height: '40%', backgroundColor: 'rgba(255,255,255,0.15)' },
