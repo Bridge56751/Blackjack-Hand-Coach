@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import React, { ReactNode, useMemo, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
 import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
@@ -9,66 +9,227 @@ import { useColors } from '@/hooks/useColors';
 
 const deckOptions: TableRules['decks'][] = [1, 2, 4, 6, 8];
 
+const presetDescriptions: Record<string, string> = {
+  'Vegas 6 Deck': 'Six decks · dealer stands on soft 17 · late surrender',
+  'Strip 6 Deck': 'Six decks · dealer hits soft 17 · late surrender',
+  'Double Deck': 'Two decks · dealer stands on soft 17 · late surrender',
+  'Single Deck': 'One deck · dealer stands on soft 17 · no surrender',
+};
+
 export default function TableSetupScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { startSession } = useCoach();
   const [rules, setRules] = useState<TableRules>(normalizeTableRules(TABLE_PRESETS[0]));
-  const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) => setRules(current => ({ ...current, name: 'Custom Table', [key]: value }));
+  const webTopInset = Platform.OS === 'web' ? 67 : 0;
+  const actionHeight = 76 + Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 12);
+
+  const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) =>
+    setRules(current => ({ ...current, name: 'Custom Table', [key]: value }));
   const selectPreset = (preset: TableRules) => setRules(normalizeTableRules(preset));
-  const start = () => { startSession(rules); router.replace('/session'); };
-  const top = Math.max(insets.top, 18) + (Platform.OS === 'web' ? 56 : 0);
+  const start = () => {
+    startSession(rules);
+    router.replace('/session');
+  };
+  const summary = useMemo(() => [
+    `${rules.decks} ${rules.decks === 1 ? 'deck' : 'decks'}`,
+    rules.dealerHitsSoft17 ? 'Dealer hits soft 17' : 'Dealer stands on soft 17',
+    doubleLabel(rules.doubleRule),
+    rules.surrender === 'late' ? 'Late surrender available' : 'No surrender',
+  ], [rules]);
 
   return (
     <View style={[styles.page, { backgroundColor: colors.background }]}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View pointerEvents="none" style={styles.ring} />
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: top, paddingBottom: Math.max(insets.bottom, 24) + 24 }]} showsVerticalScrollIndicator={false}>
-        <View style={styles.topline}>
-          <TouchableOpacity testID="table-setup-back" onPress={() => router.back()} style={styles.back}><Feather name="arrow-left" size={21} color={colors.foreground} /></TouchableOpacity>
-          <Text style={[styles.kicker, { color: colors.primary }]}>CHOOSE YOUR CONDITIONS</Text>
-        </View>
-        <Text style={[styles.title, { color: colors.foreground }]}>Set the table.</Text>
-        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>Your coaching grade will follow these exact house rules.</Text>
-        <View style={[styles.basisNote, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.basisTitle, { color: colors.primary }]}>HOW WE GRADE</Text>
-          <Text style={[styles.basisText, { color: colors.mutedForeground }]}>Total-dependent basic strategy for American hole-card/peek blackjack: 3:2, split to four hands, one card on split aces. Decks, H17, DAS, double and surrender rules shape the chart. Resplit aces is saved for table matching, but does not change this initial-decision chart.</Text>
-          <Text style={[styles.basisSource, { color: colors.mutedForeground }]}>Source method: BlackjackInfo configurable strategy engine.</Text>
+      <View pointerEvents="none" style={[styles.tableArc, { borderColor: colors.border }]} />
+
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: Math.max(insets.top, 18) + webTopInset, paddingBottom: 24 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.header}>
+          <TouchableOpacity
+            accessibilityLabel="Go back"
+            testID="table-setup-back"
+            onPress={() => router.back()}
+            style={[styles.backButton, { borderColor: colors.border, backgroundColor: colors.card }]}
+          >
+            <Feather name="arrow-left" size={20} color={colors.foreground} />
+          </TouchableOpacity>
+          <View>
+            <Text style={[styles.brand, { color: colors.primary }]}>BLACKJACK COACH</Text>
+            <Text style={[styles.eyebrow, { color: colors.mutedForeground }]}>PRACTICE TABLE</Text>
+          </View>
         </View>
 
-        <Text style={[styles.section, { color: colors.foreground }]}>HOUSE PRESETS</Text>
-        <View style={styles.presetGrid}>
-          {TABLE_PRESETS.map(preset => <TouchableOpacity key={preset.name} testID={`preset-${preset.name.toLowerCase().replace(/\s/g, '-')}`} onPress={() => selectPreset(preset)} style={[styles.preset, { borderColor: rules.name === preset.name ? colors.primary : colors.border, backgroundColor: rules.name === preset.name ? 'rgba(212,175,55,0.13)' : colors.card }]}>
-            <Text style={[styles.presetName, { color: colors.foreground }]}>{preset.name}</Text>
-            <Text style={[styles.presetDetail, { color: colors.mutedForeground }]}>{preset.decks} decks · {preset.dealerHitsSoft17 ? 'H17' : 'S17'}</Text>
-          </TouchableOpacity>)}
+        <Text style={[styles.title, { color: colors.foreground }]}>Set Up Your Table</Text>
+        <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
+          Match the casino rules you want to practice. Your coaching will use this exact table.
+        </Text>
+
+        <SectionLead label="START WITH A PRESET" title="Pick the closest casino table" colors={colors} />
+        <View style={styles.presetList}>
+          {TABLE_PRESETS.map(preset => {
+            const selected = rules.name === preset.name;
+            return (
+              <TouchableOpacity
+                key={preset.name}
+                testID={`preset-${preset.name.toLowerCase().replace(/\s/g, '-')}`}
+                onPress={() => selectPreset(preset)}
+                style={[
+                  styles.preset,
+                  {
+                    borderColor: selected ? colors.primary : colors.border,
+                    backgroundColor: selected ? 'rgba(212,175,55,0.14)' : colors.card,
+                  },
+                ]}
+              >
+                <View style={styles.presetCopy}>
+                  <Text style={[styles.presetName, { color: colors.foreground }]}>{preset.name}</Text>
+                  <Text style={[styles.presetDetail, { color: colors.mutedForeground }]}>{presetDescriptions[preset.name]}</Text>
+                </View>
+                <View style={[styles.selectionMark, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>
+                  {selected && <View style={[styles.selectionDot, { backgroundColor: colors.primary }]} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
-        <RuleCard title="Deck count" colors={colors}>
-          <View style={styles.optionRow}>{deckOptions.map(deck => <Chip key={deck} label={`${deck}`} selected={rules.decks === deck} onPress={() => update('decks', deck)} testID={`deck-${deck}`} colors={colors} />)}</View>
-        </RuleCard>
-        <RuleCard title="Dealer on soft 17" colors={colors}>
-          <Choice label="Stand on soft 17" selected={!rules.dealerHitsSoft17} onPress={() => update('dealerHitsSoft17', false)} testID="dealer-s17" colors={colors} />
-          <Choice label="Hit soft 17" selected={rules.dealerHitsSoft17} onPress={() => update('dealerHitsSoft17', true)} testID="dealer-h17" colors={colors} />
-        </RuleCard>
-        <RuleCard title="Double down" colors={colors}>
-          <Choice label="Any first two cards" selected={rules.doubleRule === 'any-two'} onPress={() => update('doubleRule', 'any-two' as DoubleRule)} testID="double-any-two" colors={colors} />
-          <Choice label="9–11 only" selected={rules.doubleRule === 'nine-eleven'} onPress={() => update('doubleRule', 'nine-eleven' as DoubleRule)} testID="double-nine-eleven" colors={colors} />
-          <Choice label="10–11 only" selected={rules.doubleRule === 'ten-eleven'} onPress={() => update('doubleRule', 'ten-eleven' as DoubleRule)} testID="double-ten-eleven" colors={colors} />
-        </RuleCard>
-        <RuleCard title="Player options" colors={colors}>
-          <Choice label="Double after split" selected={rules.doubleAfterSplit} onPress={() => update('doubleAfterSplit', !rules.doubleAfterSplit)} testID="double-after-split" colors={colors} />
-          <Choice label="Late surrender" selected={rules.surrender === 'late'} onPress={() => update('surrender', rules.surrender === 'late' ? 'none' as SurrenderRule : 'late' as SurrenderRule)} testID="late-surrender" colors={colors} />
-          <Choice label="Resplit aces" selected={rules.resplitAces} onPress={() => update('resplitAces', !rules.resplitAces)} testID="resplit-aces" colors={colors} />
-        </RuleCard>
-        <TouchableOpacity testID="start-configured-session" onPress={start} style={[styles.start, { backgroundColor: colors.primary }]}><Text style={[styles.startText, { color: colors.primaryForeground }]}>TAKE THIS SEAT</Text><Feather name="arrow-right" size={20} color={colors.primaryForeground} /></TouchableOpacity>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <View style={styles.summaryHeader}>
+            <View style={[styles.summaryIcon, { backgroundColor: 'rgba(212,175,55,0.16)' }]}>
+              <Feather name="check" size={15} color={colors.primary} />
+            </View>
+            <View>
+              <Text style={[styles.summaryOverline, { color: colors.primary }]}>YOUR TABLE, IN PLAIN ENGLISH</Text>
+              <Text style={[styles.summaryName, { color: colors.foreground }]}>{rules.name}</Text>
+            </View>
+          </View>
+          <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+          {summary.map((item, index) => (
+            <View key={item} style={styles.summaryLine}>
+              <Text style={[styles.summaryNumber, { color: colors.primary }]}>{`0${index + 1}`}</Text>
+              <Text style={[styles.summaryText, { color: colors.mutedForeground }]}>{item}</Text>
+            </View>
+          ))}
+        </View>
+
+        <SectionLead label="FINE-TUNE THE RULES" title="Manual table settings" colors={colors} />
+
+        <RuleSection title="Shoe" description="How many decks are in the dealer's shoe." colors={colors}>
+          <View style={styles.deckRow}>
+            {deckOptions.map(deck => (
+              <DeckChip key={deck} deck={deck} selected={rules.decks === deck} onPress={() => update('decks', deck)} colors={colors} />
+            ))}
+          </View>
+        </RuleSection>
+
+        <RuleSection title="Dealer Rules" description="What the dealer must do with a soft total of 17." colors={colors}>
+          <RuleChoice label="Dealer stands on soft 17" detail="Dealer stops with an ace counted as 11, plus a 6." selected={!rules.dealerHitsSoft17} onPress={() => update('dealerHitsSoft17', false)} testID="dealer-s17" colors={colors} />
+          <RuleChoice label="Dealer hits soft 17" detail="Dealer takes another card with an ace-and-6 soft 17." selected={rules.dealerHitsSoft17} onPress={() => update('dealerHitsSoft17', true)} testID="dealer-h17" colors={colors} last />
+        </RuleSection>
+
+        <RuleSection title="Player Options" description="Choose the moves the table lets you make." colors={colors}>
+          <RuleChoice label="Double on any first two cards" detail="Most flexible doubling rule." selected={rules.doubleRule === 'any-two'} onPress={() => update('doubleRule', 'any-two' as DoubleRule)} testID="double-any-two" colors={colors} />
+          <RuleChoice label="Double only on totals of 9–11" detail="You can double with two cards totaling 9, 10, or 11." selected={rules.doubleRule === 'nine-eleven'} onPress={() => update('doubleRule', 'nine-eleven' as DoubleRule)} testID="double-nine-eleven" colors={colors} />
+          <RuleChoice label="Double only on totals of 10–11" detail="The most restrictive doubling rule shown here." selected={rules.doubleRule === 'ten-eleven'} onPress={() => update('doubleRule', 'ten-eleven' as DoubleRule)} testID="double-ten-eleven" colors={colors} />
+          <RuleChoice label="Double after splitting" detail="Double down after dividing a pair into two hands." selected={rules.doubleAfterSplit} onPress={() => update('doubleAfterSplit', !rules.doubleAfterSplit)} testID="double-after-split" colors={colors} />
+          <RuleChoice label="Late surrender" detail="Give up after the dealer checks for blackjack and lose half your bet." selected={rules.surrender === 'late'} onPress={() => update('surrender', rules.surrender === 'late' ? 'none' as SurrenderRule : 'late' as SurrenderRule)} testID="late-surrender" colors={colors} />
+          <RuleChoice label="Resplit aces" detail="Split another pair of aces after your first ace split." selected={rules.resplitAces} onPress={() => update('resplitAces', !rules.resplitAces)} testID="resplit-aces" colors={colors} last />
+        </RuleSection>
+
+        <RuleSection title="Advanced · Strategy Basis" description="How Blackjack Coach builds your advice." colors={colors}>
+          <Text style={[styles.basisText, { color: colors.mutedForeground }]}>
+            Coaching uses total-dependent basic strategy for American hole-card blackjack, including the 3:2 payout, dealer peek, up to four split hands, and one card on split aces. Decks, dealer behavior, doubling, and surrender adjust the chart. Resplitting aces is saved to match your table, but does not change the first-decision chart.
+          </Text>
+          <Text style={[styles.basisSource, { color: colors.mutedForeground }]}>Strategy method: BlackjackInfo configurable strategy engine.</Text>
+        </RuleSection>
+        <View aria-hidden style={{ height: actionHeight + 24 }} />
       </ScrollView>
+
+      <View style={[styles.bottomAction, { backgroundColor: colors.background, borderTopColor: colors.border, paddingBottom: Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 12) }]}>
+        <TouchableOpacity testID="start-configured-session" onPress={start} style={[styles.startButton, { backgroundColor: colors.primary }]}>
+          <Text style={[styles.startText, { color: colors.primaryForeground }]}>START SESSION</Text>
+          <Feather name="arrow-right" size={20} color={colors.primaryForeground} />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
-function RuleCard({ title, children, colors }: { title: string; children: React.ReactNode; colors: any }) { return <View style={[styles.ruleCard, { backgroundColor: colors.card, borderColor: colors.border }]}><Text style={[styles.ruleTitle, { color: colors.mutedForeground }]}>{title}</Text>{children}</View>; }
-function Chip({ label, selected, onPress, testID, colors }: { label: string; selected: boolean; onPress: () => void; testID: string; colors: any }) { return <TouchableOpacity testID={testID} onPress={onPress} style={[styles.chip, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : 'transparent' }]}><Text style={[styles.chipText, { color: selected ? colors.primaryForeground : colors.foreground }]}>{label}</Text></TouchableOpacity>; }
-function Choice({ label, selected, onPress, testID, colors }: { label: string; selected: boolean; onPress: () => void; testID: string; colors: any }) { return <TouchableOpacity testID={testID} onPress={onPress} style={styles.choice}><Text style={[styles.choiceText, { color: colors.foreground }]}>{label}</Text><View style={[styles.radio, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>{selected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}</View></TouchableOpacity>; }
-const styles = StyleSheet.create({ page:{flex:1}, ring:{position:'absolute',width:620,height:620,borderRadius:310,borderWidth:1,borderColor:'rgba(255,255,255,0.07)',top:-340,left:-110},content:{paddingHorizontal:20},topline:{flexDirection:'row',alignItems:'center',gap:14},back:{padding:8,marginLeft:-8},kicker:{fontFamily:'Inter_700Bold',letterSpacing:1.6,fontSize:11},title:{fontFamily:'Inter_700Bold',fontSize:36,letterSpacing:-1,marginTop:18},subtitle:{fontFamily:'Inter_400Regular',fontSize:15,lineHeight:22,marginTop:6,marginBottom:14},basisNote:{borderWidth:1,borderRadius:12,padding:14,marginBottom:28},basisTitle:{fontFamily:'Inter_700Bold',fontSize:11,letterSpacing:1.2,marginBottom:6},basisText:{fontFamily:'Inter_400Regular',fontSize:12,lineHeight:18},basisSource:{fontFamily:'Inter_500Medium',fontSize:11,lineHeight:16,marginTop:7},section:{fontFamily:'Inter_700Bold',fontSize:12,letterSpacing:1.5,marginBottom:12},presetGrid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:24},preset:{width:'48%',padding:14,borderWidth:1,borderRadius:12},presetName:{fontFamily:'Inter_600SemiBold',fontSize:14},presetDetail:{fontFamily:'Inter_400Regular',fontSize:12,marginTop:4},ruleCard:{borderWidth:1,borderRadius:14,padding:16,marginBottom:12},ruleTitle:{fontFamily:'Inter_600SemiBold',fontSize:12,letterSpacing:1,textTransform:'uppercase',marginBottom:10},optionRow:{flexDirection:'row',gap:7},chip:{flex:1,height:40,borderRadius:8,borderWidth:1,alignItems:'center',justifyContent:'center'},chipText:{fontFamily:'Inter_700Bold',fontSize:14},choice:{height:42,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},choiceText:{fontFamily:'Inter_500Medium',fontSize:15},radio:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:'center',justifyContent:'center'},radioDot:{width:10,height:10,borderRadius:5},start:{height:58,borderRadius:29,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:10,marginTop:12},startText:{fontFamily:'Inter_700Bold',fontSize:16,letterSpacing:.6} });
+function SectionLead({ label, title, colors }: { label: string; title: string; colors: any }) {
+  return <View style={styles.sectionLead}><Text style={[styles.sectionLabel, { color: colors.primary }]}>{label}</Text><Text style={[styles.sectionTitle, { color: colors.foreground }]}>{title}</Text></View>;
+}
+
+function RuleSection({ title, description, children, colors }: { title: string; description: string; children: ReactNode; colors: any }) {
+  return <View style={[styles.ruleSection, { borderTopColor: colors.border }]}><Text style={[styles.ruleTitle, { color: colors.foreground }]}>{title}</Text><Text style={[styles.ruleDescription, { color: colors.mutedForeground }]}>{description}</Text><View style={styles.ruleContent}>{children}</View></View>;
+}
+
+function DeckChip({ deck, selected, onPress, colors }: { deck: TableRules['decks']; selected: boolean; onPress: () => void; colors: any }) {
+  return <TouchableOpacity testID={`deck-${deck}`} onPress={onPress} style={[styles.deckChip, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.card }]}><Text style={[styles.deckValue, { color: selected ? colors.primaryForeground : colors.foreground }]}>{deck}</Text><Text style={[styles.deckUnit, { color: selected ? colors.primaryForeground : colors.mutedForeground }]}>{deck === 1 ? 'DECK' : 'DECKS'}</Text></TouchableOpacity>;
+}
+
+function RuleChoice({ label, detail, selected, onPress, testID, colors, last = false }: { label: string; detail: string; selected: boolean; onPress: () => void; testID: string; colors: any; last?: boolean }) {
+  return <TouchableOpacity testID={testID} onPress={onPress} style={[styles.choice, !last && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}><View style={styles.choiceCopy}><Text style={[styles.choiceLabel, { color: colors.foreground }]}>{label}</Text><Text style={[styles.choiceDetail, { color: colors.mutedForeground }]}>{detail}</Text></View><View style={[styles.radio, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>{selected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}</View></TouchableOpacity>;
+}
+
+function doubleLabel(rule: DoubleRule) {
+  if (rule === 'nine-eleven') return 'Double only on totals of 9–11';
+  if (rule === 'ten-eleven') return 'Double only on totals of 10–11';
+  return 'Double on any first two cards';
+}
+
+const styles = StyleSheet.create({
+  page: { flex: 1 },
+  tableArc: { position: 'absolute', width: 620, height: 620, borderRadius: 310, borderWidth: 1, top: -405, left: -115, opacity: 0.55 },
+  content: { paddingHorizontal: 20 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  backButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  brand: { fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: 1.9 },
+  eyebrow: { fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: 1.45, marginTop: 2 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 31, lineHeight: 38, letterSpacing: -0.7, marginTop: 26 },
+  subtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, lineHeight: 22, marginTop: 7, maxWidth: 355 },
+  sectionLead: { marginTop: 30, marginBottom: 13 },
+  sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.45, marginBottom: 5 },
+  sectionTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, letterSpacing: -0.25 },
+  presetList: { gap: 9 },
+  preset: { minHeight: 76, paddingVertical: 14, paddingLeft: 16, paddingRight: 14, borderRadius: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  presetCopy: { flex: 1, paddingRight: 10 },
+  presetName: { fontFamily: 'Inter_700Bold', fontSize: 15 },
+  presetDetail: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  selectionMark: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  selectionDot: { width: 10, height: 10, borderRadius: 5 },
+  summaryCard: { marginTop: 16, borderRadius: 15, borderWidth: 1, padding: 16 },
+  summaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  summaryIcon: { width: 29, height: 29, borderRadius: 14.5, alignItems: 'center', justifyContent: 'center' },
+  summaryOverline: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 1.05 },
+  summaryName: { fontFamily: 'Inter_600SemiBold', fontSize: 15, marginTop: 3 },
+  summaryDivider: { height: StyleSheet.hairlineWidth, marginVertical: 14 },
+  summaryLine: { flexDirection: 'row', alignItems: 'center', paddingVertical: 3 },
+  summaryNumber: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.8, width: 28 },
+  summaryText: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19 },
+  ruleSection: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 20, paddingBottom: 2, marginTop: 4 },
+  ruleTitle: { fontFamily: 'Inter_700Bold', fontSize: 19, letterSpacing: -0.2 },
+  ruleDescription: { fontFamily: 'Inter_400Regular', fontSize: 13, lineHeight: 19, marginTop: 4, maxWidth: 350 },
+  ruleContent: { marginTop: 14 },
+  deckRow: { flexDirection: 'row', gap: 7 },
+  deckChip: { flex: 1, height: 57, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  deckValue: { fontFamily: 'Inter_700Bold', fontSize: 18, lineHeight: 20 },
+  deckUnit: { fontFamily: 'Inter_700Bold', fontSize: 8, letterSpacing: 0.7, marginTop: 2 },
+  choice: { minHeight: 68, flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
+  choiceCopy: { flex: 1, paddingRight: 14 },
+  choiceLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, lineHeight: 19 },
+  choiceDetail: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 17, marginTop: 2 },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
+  basisText: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 },
+  basisSource: { fontFamily: 'Inter_500Medium', fontSize: 11, lineHeight: 16, marginTop: 9 },
+  bottomAction: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopWidth: StyleSheet.hairlineWidth, paddingHorizontal: 20, paddingTop: 10 },
+  startButton: { height: 54, borderRadius: 27, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  startText: { fontFamily: 'Inter_700Bold', fontSize: 15, letterSpacing: 1 },
+});
