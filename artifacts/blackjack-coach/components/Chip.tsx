@@ -2,11 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 
 const CHIP_COLORS = {
-  5: { face: '#E63946', edge: '#A11E28', strip: '#FFFFFF' },
-  25: { face: '#28A745', edge: '#166E2B', strip: '#FFFFFF' },
-  100: { face: '#111111', edge: '#000000', strip: '#9b59b6' },
-  250: { face: '#1C39BB', edge: '#102272', strip: '#FFFFFF' },
-  500: { face: '#d35400', edge: '#a04000', strip: '#F4D03F' },
+  5: { face: '#b7353c', edge: '#5d1720', strip: '#f3d49a' },
+  25: { face: '#286f68', edge: '#123e3b', strip: '#f5ddb0' },
+  100: { face: '#25262c', edge: '#090a0c', strip: '#c3a25e' },
+  250: { face: '#344f91', edge: '#18254b', strip: '#f5ddb0' },
+  500: { face: '#b2782e', edge: '#654017', strip: '#f6df9d' },
 };
 
 export function Chip({ amount, size = 52, style, disabled }: { amount: number, size?: number, style?: ViewStyle, disabled?: boolean }) {
@@ -15,17 +15,13 @@ export function Chip({ amount, size = 52, style, disabled }: { amount: number, s
 
   return (
     <View style={[{ width: size, height: size + thickness, alignItems: 'center', justifyContent: 'flex-end' }, disabled && { opacity: 0.4 }, style]}>
-      {/* 3D Edge */}
       <View style={{ backgroundColor: colors.edge, width: size, height: size, borderRadius: size / 2, position: 'absolute', bottom: 0 }} />
-
-      {/* Edge Stripes */}
-      <View style={{ position: 'absolute', bottom: thickness / 2, width: size * 0.8, height: thickness, flexDirection: 'row', justifyContent: 'space-between', opacity: 0.9 }}>
+      <View style={{ position: 'absolute', bottom: thickness / 2, width: size * 0.82, height: thickness, flexDirection: 'row', justifyContent: 'space-between', opacity: 0.9 }}>
          <View style={{ width: size * 0.1, height: thickness, backgroundColor: colors.strip, transform: [{ skewX: '-15deg' }] }} />
          <View style={{ width: size * 0.1, height: thickness, backgroundColor: colors.strip }} />
          <View style={{ width: size * 0.1, height: thickness, backgroundColor: colors.strip, transform: [{ skewX: '15deg' }] }} />
       </View>
 
-      {/* Face */}
       <View style={[styles.chipFaceOuter, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.face, position: 'absolute', bottom: thickness }]}>
         <View style={[styles.chipDashed, { borderColor: colors.strip, width: size * 0.88, height: size * 0.88, borderRadius: size * 0.44, borderWidth: Math.max(1, size * 0.06) }]} />
         <View style={[styles.chipInner, { width: size * 0.56, height: size * 0.56, borderRadius: size * 0.28 }]}>
@@ -66,22 +62,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.4)',
+    borderColor: 'rgba(38,21,8,0.72)',
   },
   chipDashed: {
     position: 'absolute',
     borderStyle: 'dashed',
   },
   chipInner: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#f5e6c7',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.28,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 1,
   },
   chipText: {
     fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.4,
   }
 });

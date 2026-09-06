@@ -2,7 +2,6 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import { FontAwesome5 } from '@expo/vector-icons';
 import { Card, isRed } from '../lib/game';
 
 export function CardView({ card, hidden, index, scale = 1 }: { card?: Card; hidden?: boolean; index: number; scale?: number }) {
@@ -19,10 +18,10 @@ export function CardView({ card, hidden, index, scale = 1 }: { card?: Card; hidd
     return (
       <Animated.View entering={FadeInDown.delay(index * 90).duration(220)} style={containerStyle}>
         <View style={[styles.card, { padding: 4, borderColor: '#fff' }]}>
-          <LinearGradient colors={['#b4211e', '#7a1918']} style={styles.hiddenInner}>
+          <LinearGradient colors={['#7c1f28', '#35111a']} style={styles.hiddenInner}>
              <View style={styles.hiddenInnerBorder}>
                <View style={styles.hiddenCenterCircle}>
-                 <FontAwesome5 name="crown" size={20} color="rgba(255,255,255,0.4)" />
+              <Text style={styles.hiddenMark}>♠</Text>
                </View>
              </View>
           </LinearGradient>
@@ -33,7 +32,7 @@ export function CardView({ card, hidden, index, scale = 1 }: { card?: Card; hidd
 
   if (!card) return null;
   const red = isRed(card);
-  const color = red ? '#D92534' : '#11181C';
+  const color = red ? '#a72d36' : '#172128';
   const rank = card.rank === 'T' ? '10' : card.rank;
 
   return (
@@ -53,19 +52,19 @@ export function CardView({ card, hidden, index, scale = 1 }: { card?: Card; hidd
 
 const styles = StyleSheet.create({
   cardContainer: {
-    shadowColor: '#000',
+    shadowColor: '#160e08',
     shadowOffset: { width: 4, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 5,
+    shadowOpacity: 0.55,
+    shadowRadius: 7,
     elevation: 8,
     zIndex: 1,
   },
   card: {
     flex: 1,
-    borderRadius: 8,
-    backgroundColor: '#FAFAFA',
+    borderRadius: 7,
+    backgroundColor: '#f6f0df',
     borderWidth: 1,
-    borderColor: '#D0D0D0',
+    borderColor: '#cbbd9d',
     overflow: 'hidden'
   },
   hiddenInner: {
@@ -78,7 +77,7 @@ const styles = StyleSheet.create({
     width: '85%',
     height: '90%',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: 'rgba(244,218,164,0.48)',
     borderRadius: 4,
     borderStyle: 'dashed',
     alignItems: 'center',
@@ -92,6 +91,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.3)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  hiddenMark: {
+    color: 'rgba(244,218,164,0.54)',
+    fontSize: 22,
+    lineHeight: 24,
   },
   topLeft: {
     position: 'absolute',
