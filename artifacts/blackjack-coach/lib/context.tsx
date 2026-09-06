@@ -8,6 +8,8 @@ export type Decision = {
   spot?: number;
   playerCards: string[];
   dealerCard: string;
+  playerCardLabels?: string[];
+  dealerCardLabel?: string;
   chosen: Action;
   correct: Action;
   isCorrect: boolean;

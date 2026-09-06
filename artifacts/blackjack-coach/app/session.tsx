@@ -57,7 +57,17 @@ export default function SessionScreen() {
     const playerCards = hand.cards.map(cardRankForStrategy);
     const dealerCard = cardRankForStrategy(dealer[0]);
     const correct = getBasicStrategy(playerCards, dealerCard, rules);
-    decisionsRef.current = [...decisionsRef.current, { id: uid(), spot: hand.spot, playerCards, dealerCard, chosen: action, correct, isCorrect: correct === action }];
+    decisionsRef.current = [...decisionsRef.current, {
+      id: uid(),
+      spot: hand.spot,
+      playerCards,
+      dealerCard,
+      playerCardLabels: hand.cards.map(cardLabel),
+      dealerCardLabel: cardLabel(dealer[0]),
+      chosen: action,
+      correct,
+      isCorrect: correct === action,
+    }];
   };
   const handsAtSpot = (hand: GameHand, all = hands) => all.filter(item => item.spot === hand.spot).length;
   const playable = (hand: GameHand, all = hands) => {

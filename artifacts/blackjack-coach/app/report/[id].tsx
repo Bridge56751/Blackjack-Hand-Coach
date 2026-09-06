@@ -72,17 +72,13 @@ export default function ReportScreen() {
             <View style={styles.scenarioRow}>
               <View style={styles.scenarioHalf}>
                 <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>{item.spot ? `Spot ${item.spot} · Dealer Up-Card` : 'Dealer Up-Card'}</Text>
-                <View style={[styles.miniCard, { backgroundColor: colors.background, borderColor: colors.border }]}>
-                  <Text style={[styles.miniCardText, { color: colors.foreground }]}>{item.dealerCard}</Text>
-                </View>
+                <ReportCard label={item.dealerCardLabel ?? item.dealerCard} />
               </View>
               <View style={styles.scenarioHalf}>
                 <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>Your Hand</Text>
                 <View style={styles.cardsRow}>
-                  {item.playerCards.map((c, i) => (
-                    <View key={i} style={[styles.miniCard, { backgroundColor: colors.background, borderColor: colors.border, marginLeft: i > 0 ? -8 : 0 }]}>
-                      <Text style={[styles.miniCardText, { color: colors.foreground }]}>{c}</Text>
-                    </View>
+                  {(item.playerCardLabels ?? item.playerCards).map((card, i) => (
+                    <ReportCard key={i} label={card} overlapped={i > 0} />
                   ))}
                 </View>
               </View>
@@ -102,6 +98,24 @@ export default function ReportScreen() {
           </View>
         )}
       />
+    </View>
+  );
+}
+
+function ReportCard({ label, overlapped = false }: { label: string; overlapped?: boolean }) {
+  const last = label.slice(-1);
+  const hasSuit = ['♠', '♥', '♦', '♣'].includes(last);
+  const suit = hasSuit ? last : '';
+  const rank = hasSuit ? label.slice(0, -1) : label === 'T' ? '10' : label;
+  const color = suit === '♥' || suit === '♦' ? '#d92534' : '#11181c';
+
+  return (
+    <View style={[styles.miniCard, overlapped && styles.miniCardOverlapped]}>
+      <View style={styles.miniCardCorner}>
+        <Text style={[styles.miniCardRank, { color }]}>{rank}</Text>
+        {!!suit && <Text style={[styles.miniCardSuitSmall, { color }]}>{suit}</Text>}
+      </View>
+      {!!suit && <Text style={[styles.miniCardSuit, { color }]}>{suit}</Text>}
     </View>
   );
 }
@@ -148,14 +162,26 @@ const styles = StyleSheet.create({
   scenarioHalf: { flex: 1 },
   scenarioLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 },
   miniCard: {
-    width: 36,
-    height: 52,
-    borderRadius: 6,
+    width: 48,
+    height: 68,
+    borderRadius: 7,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
+    borderColor: '#d4d4d4',
+    backgroundColor: '#fafafa',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 2, height: 3 },
+    shadowOpacity: .22,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  miniCardText: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  miniCardOverlapped: { marginLeft: -11 },
+  miniCardCorner: { position: 'absolute', top: 3, left: 4, width: 18, alignItems: 'center', zIndex: 2 },
+  miniCardRank: { fontSize: 15, lineHeight: 15, fontFamily: 'Inter_700Bold', letterSpacing: -.5 },
+  miniCardSuitSmall: { fontSize: 11, lineHeight: 11 },
+  miniCardSuit: { fontSize: 27, opacity: .94 },
   cardsRow: { flexDirection: 'row' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
   feedbackRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 },
