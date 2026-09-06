@@ -315,10 +315,31 @@ export default function SessionScreen() {
 
       {/* Table Area */}
       <View style={styles.tableCenter}>
-        <View testID="hint-panel" style={styles.hintPanel}>
-          <Text style={styles.hintEyebrow}>BLACKJACK COACH</Text>
-          {hintRec && hitStandOdds ? (
-            <>
+        {rules.coachEnabled !== false && (
+          <View testID="hint-panel" style={styles.hintPanel}>
+            <Text style={styles.hintEyebrow}>BLACKJACK COACH</Text>
+            {hintRec && hitStandOdds ? (
+              <>
+                <View style={styles.hintRecommendation}>
+                  <View>
+                    <Text style={styles.hintLabel}>HINT</Text>
+                    <Text testID="hint-strategy-mode" style={[styles.hintModeLabel, { color: rules.accuracyMode === 'hilo-index' ? '#d9c58f' : '#888' }]}>{rules.accuracyMode === 'hilo-index' ? 'HI-LO INDEX' : 'BASIC PLAY'}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text testID="hint-action" style={styles.hintAction}>{getActionName(hintRec.action).toUpperCase()}</Text>
+                    {hintRec.indexApplied && hintRec.thresholdLabel && (
+                      <Text testID="hint-index-threshold" style={styles.hintThresholdText}>{hintRec.thresholdLabel}</Text>
+                    )}
+                  </View>
+                </View>
+                <View style={styles.oddsRow}>
+                  <View><Text style={styles.oddsLabel}>STAND</Text><Text testID="stand-odds" style={styles.oddsValue}>{hitStandOdds.standWin.toFixed(0)}%</Text></View>
+                  <View style={styles.oddsDivider} />
+                  <View><Text style={styles.oddsLabel}>HIT ONCE</Text><Text testID="hit-odds" style={styles.oddsValue}>{hitStandOdds.hitWin.toFixed(0)}%</Text></View>
+                </View>
+                <Text style={styles.oddsNote}>ESTIMATED WIN CHANCE</Text>
+              </>
+            ) : hintRec && phase === 'insurance' ? (
               <View style={styles.hintRecommendation}>
                 <View>
                   <Text style={styles.hintLabel}>HINT</Text>
@@ -331,32 +352,11 @@ export default function SessionScreen() {
                   )}
                 </View>
               </View>
-              <View style={styles.oddsRow}>
-                <View><Text style={styles.oddsLabel}>STAND</Text><Text testID="stand-odds" style={styles.oddsValue}>{hitStandOdds.standWin.toFixed(0)}%</Text></View>
-                <View style={styles.oddsDivider} />
-                <View><Text style={styles.oddsLabel}>HIT ONCE</Text><Text testID="hit-odds" style={styles.oddsValue}>{hitStandOdds.hitWin.toFixed(0)}%</Text></View>
-              </View>
-              <Text style={styles.oddsNote}>ESTIMATED WIN CHANCE</Text>
-            </>
-          ) : hintRec && phase === 'insurance' ? (
-            <>
-              <View style={styles.hintRecommendation}>
-                <View>
-                  <Text style={styles.hintLabel}>HINT</Text>
-                  <Text testID="hint-strategy-mode" style={[styles.hintModeLabel, { color: rules.accuracyMode === 'hilo-index' ? '#d9c58f' : '#888' }]}>{rules.accuracyMode === 'hilo-index' ? 'HI-LO INDEX' : 'BASIC PLAY'}</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text testID="hint-action" style={styles.hintAction}>{getActionName(hintRec.action).toUpperCase()}</Text>
-                  {hintRec.indexApplied && hintRec.thresholdLabel && (
-                    <Text testID="hint-index-threshold" style={styles.hintThresholdText}>{hintRec.thresholdLabel}</Text>
-                  )}
-                </View>
-              </View>
-            </>
-          ) : (
-            <Text style={styles.hintWaiting}>{phase === 'settled' ? 'ROUND COMPLETE' : 'HINTS APPEAR AFTER DEAL'}</Text>
-          )}
-        </View>
+            ) : (
+              <Text style={styles.hintWaiting}>{phase === 'settled' ? 'ROUND COMPLETE' : 'HINTS APPEAR AFTER DEAL'}</Text>
+            )}
+          </View>
+        )}
         {rules.cardCountingEnabled && (
           <View testID="count-panel" style={styles.countPanel}>
             <Text style={styles.countEyebrow}>HI-LO · LIVE</Text>

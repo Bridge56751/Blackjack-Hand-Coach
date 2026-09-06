@@ -10,6 +10,7 @@ export type TableRules = {
   doubleRule: DoubleRule;
   surrender: SurrenderRule;
   resplitAces: boolean;
+  coachEnabled?: boolean;
   cardCountingEnabled?: boolean;
   multipleHandsEnabled?: boolean;
   /** Basic strategy is the safe default for saved sessions created before indices existed. */
@@ -24,6 +25,7 @@ export const DEFAULT_TABLE_RULES: TableRules = {
   doubleRule: 'any-two',
   surrender: 'late',
   resplitAces: true,
+  coachEnabled: true,
   cardCountingEnabled: false,
   multipleHandsEnabled: false,
   accuracyMode: 'basic',
@@ -40,6 +42,7 @@ export function normalizeTableRules(rules?: Partial<TableRules>): TableRules {
   const normalized: TableRules = {
     ...DEFAULT_TABLE_RULES,
     ...rules,
+    coachEnabled: rules?.coachEnabled ?? true,
     cardCountingEnabled: rules?.cardCountingEnabled ?? false,
     multipleHandsEnabled: rules?.multipleHandsEnabled ?? false,
     accuracyMode: rules?.accuracyMode === 'hilo-index' ? 'hilo-index' : 'basic',

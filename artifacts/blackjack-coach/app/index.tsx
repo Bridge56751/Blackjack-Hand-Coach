@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Pressable, Modal } from 'react-native';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
 import { Stack, useRouter } from 'expo-router';
@@ -103,6 +103,8 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [countAccuracyOverride, setCountAccuracyOverride] = useState<boolean | null>(null);
+  const [seatPrompt, setSeatPrompt] = useState<'coach' | 'count' | null>(null);
+  const [pendingCoachEnabled, setPendingCoachEnabled] = useState(true);
   const supportsHiLo = preferredRules.decks === 4 || preferredRules.decks === 6 || preferredRules.decks === 8;
   const countAdjustedAccuracy = supportsHiLo
     && (countAccuracyOverride ?? preferredRules.accuracyMode === 'hilo-index');
@@ -126,11 +128,27 @@ export default function DashboardScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
+    setSeatPrompt('coach');
+  };
+
+  const beginSession = (coachEnabled: boolean, showCount: boolean) => {
     startSession(normalizeTableRules({
       ...preferredRules,
       accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
+      coachEnabled,
+      cardCountingEnabled: countAdjustedAccuracy && showCount,
     }));
+    setSeatPrompt(null);
     router.push('/session');
+  };
+
+  const chooseCoach = (coachEnabled: boolean) => {
+    if (countAdjustedAccuracy) {
+      setPendingCoachEnabled(coachEnabled);
+      setSeatPrompt('count');
+      return;
+    }
+    beginSession(coachEnabled, false);
   };
 
   const overallDecisions = history.flatMap(s => s.hands.flatMap(h => h.decisions));
@@ -233,6 +251,55 @@ export default function DashboardScreen() {
         )}
       </ScrollView>
       <BottomNav />
+      <Modal
+        transparent
+        visible={seatPrompt !== null}
+        animationType="fade"
+        onRequestClose={() => setSeatPrompt(null)}
+      >
+        <View style={styles.promptBackdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSeatPrompt(null)} />
+          <View style={styles.promptSheet}>
+            <View style={styles.promptSuit}>
+              <MaterialCommunityIcons
+                name={seatPrompt === 'count' ? 'cards-playing-outline' : 'school-outline'}
+                size={25}
+                color="#D4AF37"
+              />
+            </View>
+            <Text style={styles.promptEyebrow}>BEFORE YOU PLAY</Text>
+            <Text style={styles.promptTitle}>
+              {seatPrompt === 'count' ? 'Show the live count?' : 'Use Blackjack Coach?'}
+            </Text>
+            <Text style={styles.promptBody}>
+              {seatPrompt === 'count'
+                ? 'Choose whether the running count, true count, and estimated edge appear on the table. Your decisions are still graded at the count either way.'
+                : 'Choose whether Hit and Stand percentages and the recommended action appear while you play. Every decision is still graded after the session.'}
+            </Text>
+            <View style={styles.promptActions}>
+              {seatPrompt === 'coach' ? (
+                <>
+                  <Pressable testID="coach-hide" style={styles.promptSecondary} onPress={() => chooseCoach(false)}>
+                    <Text style={styles.promptSecondaryText}>PLAY WITHOUT HINTS</Text>
+                  </Pressable>
+                  <Pressable testID="coach-show" style={styles.promptPrimary} onPress={() => chooseCoach(true)}>
+                    <Text style={styles.promptPrimaryText}>SHOW COACH</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Pressable testID="count-hide" style={styles.promptSecondary} onPress={() => beginSession(pendingCoachEnabled, false)}>
+                    <Text style={styles.promptSecondaryText}>HIDE COUNT</Text>
+                  </Pressable>
+                  <Pressable testID="count-show" style={styles.promptPrimary} onPress={() => beginSession(pendingCoachEnabled, true)}>
+                    <Text style={styles.promptPrimaryText}>SHOW COUNT</Text>
+                  </Pressable>
+                </>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -478,5 +545,93 @@ const styles = StyleSheet.create({
   recentText: {
     fontFamily: 'Inter_500Medium',
     fontSize: 15,
-  }
+  },
+  promptBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  promptSheet: {
+    marginHorizontal: 14,
+    marginBottom: 18,
+    paddingHorizontal: 22,
+    paddingTop: 22,
+    paddingBottom: 20,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.42)',
+    backgroundColor: '#0A2B1B',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.55,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+  promptSuit: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.36)',
+    backgroundColor: 'rgba(212,175,55,0.1)',
+  },
+  promptEyebrow: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 1.8,
+    color: '#D4AF37',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  promptTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 24,
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  promptBody: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    color: 'rgba(255,255,255,0.68)',
+    textAlign: 'center',
+    marginTop: 9,
+  },
+  promptActions: {
+    gap: 10,
+    marginTop: 22,
+  },
+  promptPrimary: {
+    minHeight: 52,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#D4AF37',
+  },
+  promptPrimaryText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 13,
+    letterSpacing: 0.8,
+    color: '#07110C',
+  },
+  promptSecondary: {
+    minHeight: 50,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  promptSecondaryText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 12,
+    letterSpacing: 0.7,
+    color: 'rgba(255,255,255,0.76)',
+  },
 });
