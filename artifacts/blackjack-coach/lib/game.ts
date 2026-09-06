@@ -46,20 +46,20 @@ export function shouldReshuffle(shoeLength: number, decks: number): boolean {
 /** Initial blackjack dealing order for any number of occupied player spots. */
 export function dealInitialRound(shoe: Card[], spotBets: number[], makeId: () => string) {
   let remaining = shoe;
-  const hands = spotBets.map((bet, index): GameHand | null => bet > 0 ? {
+  const handsByPosition = spotBets.map((bet, index): GameHand | null => bet > 0 ? {
     id: makeId(), cards: [], bet, doubled: false, surrendered: false, splitAces: false, fromSplit: false, spot: index + 1
   } : null);
+  const hands = handsByPosition.filter((hand): hand is GameHand => !!hand).reverse();
   const events: { kind: 'player' | 'dealer'; spot?: number; card: Card; hidden?: boolean }[] = [];
   for (let pass = 0; pass < 2; pass++) {
-    hands.forEach((hand, index) => {
-      if (!hand) return;
+    hands.forEach(hand => {
       const next = draw(remaining); remaining = next.shoe;
-      hand.cards.push(next.card); events.push({ kind: 'player', spot: index + 1, card: next.card });
+      hand.cards.push(next.card); events.push({ kind: 'player', spot: hand.spot, card: next.card });
     });
     const next = draw(remaining); remaining = next.shoe;
     events.push({ kind: 'dealer', card: next.card, hidden: pass === 1 });
   }
-  return { hands: hands.filter((hand): hand is GameHand => !!hand), dealer: events.filter(e => e.kind === 'dealer').map(e => e.card), shoe: remaining, events };
+  return { hands, dealer: events.filter(e => e.kind === 'dealer').map(e => e.card), shoe: remaining, events };
 }
 export function handTotal(cards: Card[]) {
   let total = cards.reduce((sum, card) => sum + cardValue(card), 0);

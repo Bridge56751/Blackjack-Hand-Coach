@@ -230,6 +230,7 @@ export default function SessionScreen() {
         rules,
       )
     : undefined;
+  const displayHands = [...hands].sort((a, b) => (a.spot ?? 0) - (b.spot ?? 0));
   const isCompactTable = Dimensions.get('window').height < 760;
 
   return (
@@ -338,8 +339,8 @@ export default function SessionScreen() {
               </Animated.View>
           ) : (
              <View style={styles.handsArea}>
-                {hands.map((hand, index) => {
-                   const isActive = index === active && phase === 'playing';
+                {displayHands.map((hand, index) => {
+                   const isActive = hand.id === current?.id && phase === 'playing';
                    return (
                       <View key={hand.id} style={[styles.handWrapper, { zIndex: isActive ? 10 : index, transform: [{ scale: isActive ? 1.15 : 0.9 }], marginTop: hands.length === 1 || (hands.length <= 3 && hand.spot === 2) ? 0 : 25 }]}>
                         <View style={styles.cardRow}>
