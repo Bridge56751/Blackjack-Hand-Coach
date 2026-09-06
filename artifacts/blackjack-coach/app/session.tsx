@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions, Modal } from 'react-native';
 import { Feather, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,7 +8,7 @@ import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCoach, Decision } from '@/lib/context';
 import { getBasicStrategy, getActionName, Action } from '@/lib/strategy';
-import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealInitialRound, dealerShouldHit, draw, handTotal, isBlackjack, settleHand, settleInsurance } from '@/lib/game';
+import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealInitialRound, dealerShouldHit, draw, handTotal, isBlackjack, settleHand, settleInsurance, shouldReshuffle } from '@/lib/game';
 import { CardView } from '@/components/CardView';
 import { Chip, ChipStack } from '@/components/Chip';
 import { estimatedPlayerEdge, hiLoValue, trueCount } from '@/lib/counting';
@@ -21,7 +21,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const buzz = () => { if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
 
 export default function SessionScreen() {
-  const { activeSession, endSession, recordHand } = useCoach();
+  const { activeSession, endSession, recordHand, addBankroll } = useCoach();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const rules = activeSession?.rules;
@@ -39,6 +39,7 @@ export default function SessionScreen() {
   const [insuranceBet, setInsuranceBet] = useState(0);
   const [insuranceNet, setInsuranceNet] = useState<number | undefined>();
   const [runningCount, setRunningCount] = useState(0);
+  const [topUpOpen, setTopUpOpen] = useState(false);
   const runningCountRef = useRef(0);
   const decisionsRef = useRef<Decision[]>([]);
   const roundBetsRef = useRef<number[]>([0, 0, 0]);
@@ -113,7 +114,7 @@ export default function SessionScreen() {
     roundBetsRef.current = [...bets];
     setBankroll(value => value - totalBet); setLastBets([...bets]); setBets([0, 0, 0]);
     setPhase('dealing'); setMessage('DEALING...'); setInsuranceBet(0); setInsuranceNet(undefined); decisionsRef.current = [];
-    const needsShuffle = shoe.length < Math.round(rules.decks * 52 * .28);
+    const needsShuffle = shouldReshuffle(shoe.length, rules.decks);
     const fresh = needsShuffle ? createShoe(rules.decks) : shoe;
     if (needsShuffle) resetCount();
     const round = dealInitialRound(fresh, bets, uid);
@@ -202,6 +203,11 @@ export default function SessionScreen() {
   };
 
   const newHand = () => { setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
+  const addPracticeChips = (amount: number) => {
+    if (!addBankroll(amount)) return;
+    setBankroll(value => value + amount);
+    setTopUpOpen(false);
+  };
   const end = () => { endingRef.current = true; const id = endSession(bankroll); router.replace(id ? `/report/${id}` : '/'); };
 
   const insuranceStake = hands.filter(hand => !hand.fromSplit).reduce((sum, hand) => sum + hand.bet, 0) / 2;
@@ -238,10 +244,17 @@ export default function SessionScreen() {
           <Text style={styles.headerBrandMain}>BLACKJACK</Text>
           <Text style={styles.headerBrandSub}>COACH · {decksRemaining} DECKS · {rules.decks * 52 - shoe.length} USED</Text>
         </View>
-        <View style={styles.headerBankroll}>
+        <TouchableOpacity
+          testID="add-bankroll"
+          accessibilityLabel="Add practice chips"
+          onPress={() => setTopUpOpen(true)}
+          disabled={phase === 'dealing'}
+          style={[styles.headerBankroll, phase === 'dealing' && styles.headerBankrollDisabled]}
+        >
           <Text style={styles.headerBankrollLabel}>BANKROLL</Text>
           <Text style={styles.headerBankrollValue}>${bankroll.toLocaleString()}</Text>
-        </View>
+          <Text style={styles.headerBankrollAdd}>{phase === 'dealing' ? 'DEALING' : 'ADD CHIPS'}</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Table Area */}
@@ -409,6 +422,25 @@ export default function SessionScreen() {
             </View>
          )}
       </View>
+      <Modal visible={topUpOpen} transparent animationType="fade" onRequestClose={() => setTopUpOpen(false)}>
+        <View style={styles.topUpOverlay}>
+          <View style={styles.topUpSheet}>
+            <Text style={styles.topUpEyebrow}>PRACTICE BANKROLL</Text>
+            <Text style={styles.topUpTitle}>Add chips</Text>
+            <Text style={styles.topUpDescription}>Choose an amount to keep practicing. Added chips are tracked separately and never counted as session winnings.</Text>
+            <View style={styles.topUpOptions}>
+              {[100, 500, 1000].map(amount => (
+                <TouchableOpacity key={amount} testID={`bankroll-topup-${amount}`} onPress={() => addPracticeChips(amount)} style={styles.topUpOption}>
+                  <Text style={styles.topUpOptionLabel}>+${amount.toLocaleString()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity testID="bankroll-topup-cancel" onPress={() => setTopUpOpen(false)} style={styles.topUpCancel}>
+              <Text style={styles.topUpCancelText}>CANCEL</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -490,6 +522,7 @@ const styles = StyleSheet.create({
     minWidth: 88,
     alignItems: 'flex-end',
   },
+  headerBankrollDisabled: { opacity: 0.5 },
   headerBankrollLabel: {
     fontFamily: 'Inter_600SemiBold',
     color: 'rgba(217,197,143,0.68)',
@@ -502,6 +535,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginTop: 1,
   },
+  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 6, letterSpacing: .8, marginTop: 2 },
   tableCenter: { flex: 1, justifyContent: 'flex-start' },
   hintPanel: {
     position: 'absolute',
@@ -650,4 +684,14 @@ const styles = StyleSheet.create({
   promptText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#ebd189', marginBottom: 16, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   resultMainText: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#ebd189', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   resultNetText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#fff', marginTop: 4, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  topUpOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.68)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  topUpSheet: { width: '100%', maxWidth: 360, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(217,197,143,0.48)', backgroundColor: '#0b2e17', padding: 22, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: .55, shadowRadius: 20, elevation: 14 },
+  topUpEyebrow: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 9, letterSpacing: 1.4 },
+  topUpTitle: { fontFamily: 'Inter_700Bold', color: '#f3f0e8', fontSize: 27, marginTop: 7 },
+  topUpDescription: { fontFamily: 'Inter_400Regular', color: 'rgba(243,240,232,0.68)', fontSize: 13, lineHeight: 19, marginTop: 7 },
+  topUpOptions: { flexDirection: 'row', gap: 9, marginTop: 20 },
+  topUpOption: { flex: 1, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: '#d9b863', backgroundColor: 'rgba(217,184,99,0.13)', alignItems: 'center', justifyContent: 'center' },
+  topUpOptionLabel: { fontFamily: 'Inter_700Bold', color: '#f3f0e8', fontSize: 14 },
+  topUpCancel: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 12 },
+  topUpCancelText: { fontFamily: 'Inter_700Bold', color: 'rgba(243,240,232,0.58)', fontSize: 11, letterSpacing: 1.1 },
 });

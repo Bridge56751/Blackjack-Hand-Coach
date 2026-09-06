@@ -1,4 +1,4 @@
-import { canDouble, canSplit, createShoe, dealInitialRound, dealerShouldHit, handTotal, settleHand, settleInsurance } from '../lib/game.ts';
+import { canDouble, canSplit, createShoe, cutCardRemaining, dealInitialRound, dealerShouldHit, handTotal, settleHand, settleInsurance, shouldReshuffle, shoePenetration } from '../lib/game.ts';
 import type { GameHand } from '../lib/game.ts';
 import { DEFAULT_TABLE_RULES } from '../lib/rules.ts';
 import { estimatedPlayerEdge, hiLoValue, trueCount } from '../lib/counting.ts';
@@ -30,4 +30,7 @@ ok(DEFAULT_TABLE_RULES.multipleHandsEnabled === true, 'multiple-hand play remain
 const oddsShoe = createShoe(1);
 const twentyOdds = estimateHitStandOdds([c('T'), c('K')], c('6'), oddsShoe, DEFAULT_TABLE_RULES, 400);
 ok(twentyOdds.standWin > twentyOdds.hitWin && twentyOdds.standWin > 50, 'standing on 20 is safer than hitting once');
+ok(shoePenetration(1) === .5 && shoePenetration(2) === .65 && shoePenetration(6) === .75, 'deck-size-aware penetration');
+ok(cutCardRemaining(1) === 26 && cutCardRemaining(2) === 37 && cutCardRemaining(6) === 78, 'cut-card positions');
+ok(shouldReshuffle(26, 1) && !shouldReshuffle(27, 1) && shouldReshuffle(78, 6) && !shouldReshuffle(79, 6), 'reshuffle boundaries');
 console.log('Blackjack game validation passed.');

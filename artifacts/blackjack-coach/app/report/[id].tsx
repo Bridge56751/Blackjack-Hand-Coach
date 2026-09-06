@@ -27,6 +27,10 @@ export default function ReportScreen() {
 
   const stats = getSessionStats(session);
   const mistakes = stats.decisions.filter(d => !d.isCorrect);
+  const bankrollStart = session.bankrollStart ?? 1000;
+  const bankrollAdded = session.bankrollAdded ?? 0;
+  const bankrollEnd = session.bankrollEnd ?? bankrollStart + bankrollAdded;
+  const bankrollResult = bankrollEnd - bankrollStart - bankrollAdded;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -46,7 +50,8 @@ export default function ReportScreen() {
               <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}% Accuracy</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} / {stats.total} correct decisions</Text>
                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} rounds played</Text>
-               {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${session.bankrollStart ?? 1000} → ${session.bankrollEnd ?? session.bankrollStart ?? 1000}</Text>}
+               {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${bankrollStart}{bankrollAdded ? ` + $${bankrollAdded} added` : ''} → ${bankrollEnd}</Text>}
+               <Text style={[styles.resultText, { color: bankrollResult >= 0 ? colors.primary : colors.mutedForeground }]}>Session result {bankrollResult >= 0 ? '+' : ''}${bankrollResult}</Text>
                <Text style={[styles.tableName, { color: colors.foreground }]}>{session.rules?.name ?? 'Vegas 6 Deck'}</Text>
                <View style={[styles.rulesPill, { borderColor: colors.border }]}><Text style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)}</Text></View>
             </View>
@@ -123,6 +128,7 @@ const styles = StyleSheet.create({
   gradeTextBig: { fontSize: 48, fontFamily: 'Inter_700Bold' },
   accText: { fontSize: 24, fontFamily: 'Inter_600SemiBold', marginBottom: 8 },
   detailText: { fontSize: 16, fontFamily: 'Inter_400Regular', marginBottom: 4 },
+  resultText: { fontSize: 15, fontFamily: 'Inter_700Bold', marginTop: 3 },
   tableName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', marginTop: 12 },
   rulesPill: { marginTop: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
   rulesText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },

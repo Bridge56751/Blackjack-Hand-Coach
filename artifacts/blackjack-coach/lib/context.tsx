@@ -35,6 +35,7 @@ export type Session = {
   rules?: TableRules;
   bankrollStart?: number;
   bankrollEnd?: number;
+  bankrollAdded?: number;
 };
 
 type CoachContextType = {
@@ -43,6 +44,7 @@ type CoachContextType = {
   startSession: (rules?: TableRules) => void;
   endSession: (bankrollEnd?: number) => string | null;
   recordHand: (hand: HandRecord) => void;
+  addBankroll: (amount: number) => boolean;
   clearHistory: () => void;
 };
 
@@ -93,12 +95,21 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addBankroll = (amount: number): boolean => {
+    if (!activeSession || !Number.isFinite(amount) || amount <= 0) return false;
+    setActiveSession(current => current ? {
+      ...current,
+      bankrollAdded: (current.bankrollAdded ?? 0) + amount,
+    } : current);
+    return true;
+  };
+
   const clearHistory = () => {
     saveHistory([]);
   };
 
   return (
-    <CoachContext.Provider value={{ history, activeSession, startSession, endSession, recordHand, clearHistory }}>
+    <CoachContext.Provider value={{ history, activeSession, startSession, endSession, recordHand, addBankroll, clearHistory }}>
       {children}
     </CoachContext.Provider>
   );

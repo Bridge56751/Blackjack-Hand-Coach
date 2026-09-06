@@ -27,6 +27,22 @@ export function draw(shoe: Card[]): { card: Card; shoe: Card[] } {
   if (!shoe.length) throw new Error('The shoe is empty.');
   return { card: shoe[0], shoe: shoe.slice(1) };
 }
+
+export function shoePenetration(decks: number): number {
+  if (decks <= 1) return 0.5;
+  if (decks === 2) return 0.65;
+  if (decks === 4) return 0.7;
+  return 0.75;
+}
+
+export function cutCardRemaining(decks: number): number {
+  return Math.ceil(decks * 52 * (1 - shoePenetration(decks)));
+}
+
+export function shouldReshuffle(shoeLength: number, decks: number): boolean {
+  return shoeLength <= cutCardRemaining(decks);
+}
+
 /** Initial blackjack dealing order for any number of occupied player spots. */
 export function dealInitialRound(shoe: Card[], spotBets: number[], makeId: () => string) {
   let remaining = shoe;
