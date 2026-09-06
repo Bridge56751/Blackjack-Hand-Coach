@@ -247,6 +247,7 @@ export default function SessionScreen() {
   return (
     <View style={styles.page}>
       <LinearGradient colors={['#185a2d', '#0d3619']} style={StyleSheet.absoluteFill} />
+      <FeltMotif />
 
       {/* Blackjack Coach header */}
       <View style={[styles.tableHeader, { paddingTop: Math.max(insets.top, 10) }]}>
@@ -476,6 +477,42 @@ export default function SessionScreen() {
   );
 }
 
+/**
+ * A deliberately quiet, screen-printed inlay. It is an entirely decorative
+ * layer: no hit targets, labels, or state are attached to this artwork.
+ */
+function FeltMotif() {
+  return (
+    <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.feltMotif}>
+      <View style={styles.feltCornerMarkTopLeft} />
+      <View style={styles.feltCornerMarkTopRight} />
+      <View style={styles.feltCornerMarkBottomLeft} />
+      <View style={styles.feltCornerMarkBottomRight} />
+
+      <View style={styles.feltMedallion}>
+        <View style={styles.medallionOuter}>
+          <View style={styles.medallionInner}>
+            <Text style={styles.medallionInitials}>BC</Text>
+            <View style={styles.medallionRule} />
+            <Text style={styles.medallionCaption}>TABLE PRACTICE</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.feltFlourishLeft}>
+        <View style={styles.flourishLine} />
+        <View style={styles.flourishDot} />
+        <View style={styles.flourishLine} />
+      </View>
+      <View style={styles.feltFlourishRight}>
+        <View style={styles.flourishLine} />
+        <View style={styles.flourishDot} />
+        <View style={styles.flourishLine} />
+      </View>
+    </View>
+  );
+}
+
 type ButtonColor = 'red' | 'blue' | 'green' | 'yellow' | 'grey';
 function ActionButton({ id, label, color, icon, onPress, disabled, size = 'large' }: {
   id: string;
@@ -511,6 +548,123 @@ function ActionButton({ id, label, color, icon, onPress, disabled, size = 'large
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#0d3619' },
+  feltMotif: {
+    ...StyleSheet.absoluteFill,
+    overflow: 'hidden',
+    opacity: 0.34,
+  },
+  feltMedallion: {
+    position: 'absolute',
+    top: '39%',
+    alignSelf: 'center',
+    width: 178,
+    height: 178,
+    borderRadius: 89,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medallionOuter: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medallionInner: {
+    width: 124,
+    height: 124,
+    borderRadius: 62,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  medallionInitials: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 35,
+    letterSpacing: 8,
+    paddingLeft: 8,
+    color: 'rgba(232, 211, 151, 0.26)',
+  },
+  medallionRule: {
+    width: 40,
+    height: 1,
+    marginTop: 3,
+    marginBottom: 6,
+    backgroundColor: 'rgba(232, 211, 151, 0.24)',
+  },
+  medallionCaption: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 6,
+    letterSpacing: 1.5,
+    color: 'rgba(232, 211, 151, 0.26)',
+  },
+  feltFlourishLeft: {
+    position: 'absolute',
+    top: '52%',
+    left: -18,
+    width: 112,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    transform: [{ rotate: '-12deg' }],
+  },
+  feltFlourishRight: {
+    position: 'absolute',
+    top: '52%',
+    right: -18,
+    width: 112,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    transform: [{ rotate: '12deg' }],
+  },
+  flourishLine: { flex: 1, height: 1, backgroundColor: 'rgba(229, 204, 133, 0.22)' },
+  flourishDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(229, 204, 133, 0.24)' },
+  feltCornerMarkTopLeft: {
+    position: 'absolute',
+    top: 116,
+    left: -34,
+    width: 104,
+    height: 104,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.12)',
+    borderRadius: 52,
+  },
+  feltCornerMarkTopRight: {
+    position: 'absolute',
+    top: 116,
+    right: -34,
+    width: 104,
+    height: 104,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.12)',
+    borderRadius: 52,
+  },
+  feltCornerMarkBottomLeft: {
+    position: 'absolute',
+    bottom: 98,
+    left: -46,
+    width: 136,
+    height: 136,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.1)',
+    borderRadius: 68,
+  },
+  feltCornerMarkBottomRight: {
+    position: 'absolute',
+    bottom: 98,
+    right: -46,
+    width: 136,
+    height: 136,
+    borderWidth: 1,
+    borderColor: 'rgba(229, 204, 133, 0.1)',
+    borderRadius: 68,
+  },
   tableHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
