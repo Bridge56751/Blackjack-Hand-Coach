@@ -18,13 +18,6 @@ export function Chip({ amount, size = 52, style, disabled }: { amount: number, s
       {/* 3D Edge */}
       <View style={{ backgroundColor: colors.edge, width: size, height: size, borderRadius: size / 2, position: 'absolute', bottom: 0 }} />
 
-      {/* Edge Stripes */}
-      <View style={{ position: 'absolute', bottom: thickness / 2, width: size * 0.8, height: thickness, flexDirection: 'row', justifyContent: 'space-between', opacity: 0.9 }}>
-         <View style={{ width: size * 0.1, height: thickness, backgroundColor: colors.strip, transform: [{ skewX: '-15deg' }] }} />
-         <View style={{ width: size * 0.1, height: thickness, backgroundColor: colors.strip }} />
-         <View style={{ width: size * 0.1, height: thickness, backgroundColor: colors.strip, transform: [{ skewX: '15deg' }] }} />
-      </View>
-
       {/* Face */}
       <View style={[styles.chipFaceOuter, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.face, position: 'absolute', bottom: thickness }]}>
         <View style={[styles.chipDashed, { borderColor: colors.strip, width: size * 0.88, height: size * 0.88, borderRadius: size * 0.44, borderWidth: Math.max(1, size * 0.06) }]} />
