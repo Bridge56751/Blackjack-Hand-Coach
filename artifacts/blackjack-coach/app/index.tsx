@@ -15,6 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { getOnboardingRecord } from '@/lib/onboarding';
 import { BottomNav } from '@/components/BottomNav';
+import { normalizeTableRules } from '@/lib/rules';
 
 const AnimatedPressable = ({ onPress, style, children, testID }: any) => {
   const scale = useSharedValue(1);
@@ -96,13 +97,15 @@ function HeroCards() {
 }
 
 export default function DashboardScreen() {
-  const { history, preferredRules, preferredRulesReady } = useCoach();
+  const { history, preferredRules, preferredRulesReady, startSession } = useCoach();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [countAccuracyOverride, setCountAccuracyOverride] = useState<boolean | null>(null);
-  const countAdjustedAccuracy = countAccuracyOverride ?? preferredRules.accuracyMode === 'hilo-index';
+  const supportsHiLo = preferredRules.decks === 4 || preferredRules.decks === 6 || preferredRules.decks === 8;
+  const countAdjustedAccuracy = supportsHiLo
+    && (countAccuracyOverride ?? preferredRules.accuracyMode === 'hilo-index');
 
   useEffect(() => {
     let mounted = true;
@@ -123,10 +126,11 @@ export default function DashboardScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    router.push({
-      pathname: '/table-setup',
-      params: { accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic' },
-    });
+    startSession(normalizeTableRules({
+      ...preferredRules,
+      accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
+    }));
+    router.push('/session');
   };
 
   const overallDecisions = history.flatMap(s => s.hands.flatMap(h => h.decisions));
@@ -173,6 +177,7 @@ export default function DashboardScreen() {
             accessibilityState={{ checked: countAdjustedAccuracy }}
             accessibilityLabel="Grade play using card counting"
             onPress={() => {
+              if (!supportsHiLo) return;
               setCountAccuracyOverride(!countAdjustedAccuracy);
               if (Platform.OS !== 'web') {
                 Haptics.selectionAsync();
@@ -187,7 +192,11 @@ export default function DashboardScreen() {
               <View style={styles.countAccuracyCopy}>
                 <Text style={styles.countAccuracyTitle}>CARD COUNTING</Text>
                 <Text style={styles.countAccuracyDetail}>
-                  {countAdjustedAccuracy ? 'Accuracy uses Hi-Lo index plays' : 'Accuracy uses basic strategy'}
+                  {!supportsHiLo
+                    ? 'Hi-Lo grading requires a 4, 6, or 8-deck shoe'
+                    : countAdjustedAccuracy
+                      ? 'Accuracy uses Hi-Lo index plays'
+                      : 'Accuracy uses basic strategy'}
                 </Text>
               </View>
               <View style={[styles.toggleTrack, countAdjustedAccuracy && styles.toggleTrackActive]}>
