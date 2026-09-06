@@ -10,6 +10,7 @@ export type TableRules = {
   surrender: SurrenderRule;
   resplitAces: boolean;
   cardCountingEnabled?: boolean;
+  multipleHandsEnabled?: boolean;
 };
 
 export const DEFAULT_TABLE_RULES: TableRules = {
@@ -21,6 +22,7 @@ export const DEFAULT_TABLE_RULES: TableRules = {
   surrender: 'late',
   resplitAces: true,
   cardCountingEnabled: false,
+  multipleHandsEnabled: true,
 };
 
 export const TABLE_PRESETS: TableRules[] = [
@@ -31,7 +33,12 @@ export const TABLE_PRESETS: TableRules[] = [
 ];
 
 export function normalizeTableRules(rules?: Partial<TableRules>): TableRules {
-  return { ...DEFAULT_TABLE_RULES, ...rules, cardCountingEnabled: rules?.cardCountingEnabled ?? false };
+  return {
+    ...DEFAULT_TABLE_RULES,
+    ...rules,
+    cardCountingEnabled: rules?.cardCountingEnabled ?? false,
+    multipleHandsEnabled: rules?.multipleHandsEnabled ?? true,
+  };
 }
 
 export function rulesSummary(rules?: Partial<TableRules>): string {

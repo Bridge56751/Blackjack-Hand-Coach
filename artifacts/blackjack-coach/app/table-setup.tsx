@@ -37,6 +37,7 @@ export default function TableSetupScreen() {
     rules.dealerHitsSoft17 ? 'Dealer hits soft 17' : 'Dealer stands on soft 17',
     doubleLabel(rules.doubleRule),
     rules.surrender === 'late' ? 'Late surrender available' : 'No surrender',
+    rules.multipleHandsEnabled ? 'Up to three hands per round' : 'One hand per round',
     rules.cardCountingEnabled ? 'Live Hi-Lo counter enabled' : 'Card counting display off',
   ], [rules]);
 
@@ -128,6 +129,26 @@ export default function TableSetupScreen() {
               <DeckChip key={deck} deck={deck} selected={rules.decks === deck} onPress={() => update('decks', deck)} colors={colors} />
             ))}
           </View>
+        </RuleSection>
+
+        <RuleSection title="Hands Per Round" description="Choose whether to play one position or several positions at the same table." colors={colors}>
+          <RuleChoice
+            label="Single hand"
+            detail="Play one centered betting position each round."
+            selected={rules.multipleHandsEnabled !== true}
+            onPress={() => update('multipleHandsEnabled', false)}
+            testID="hands-single"
+            colors={colors}
+          />
+          <RuleChoice
+            label="Multiple hands"
+            detail="Play one, two, or three betting positions in the same round."
+            selected={rules.multipleHandsEnabled === true}
+            onPress={() => update('multipleHandsEnabled', true)}
+            testID="hands-multiple"
+            colors={colors}
+            last
+          />
         </RuleSection>
 
         <RuleSection title="Dealer Rules" description="What the dealer must do with a soft total of 17." colors={colors}>

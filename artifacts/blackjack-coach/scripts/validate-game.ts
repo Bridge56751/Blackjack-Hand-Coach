@@ -25,4 +25,5 @@ ok(simultaneousBlackjacksMainCredit + simultaneousBlackjacksInsurance.credit - 1
 ok(hiLoValue(c('2')) === 1 && hiLoValue(c('7')) === 0 && hiLoValue(c('A')) === -1, 'Hi-Lo card values');
 ok(trueCount(6, 156) === 2, 'true count uses fractional decks remaining');
 ok(estimatedPlayerEdge(DEFAULT_TABLE_RULES, 2) > estimatedPlayerEdge(DEFAULT_TABLE_RULES, 0), 'positive true count improves estimated player edge');
+ok(DEFAULT_TABLE_RULES.multipleHandsEnabled === true, 'multiple-hand play remains the default');
 console.log('Blackjack game validation passed.');

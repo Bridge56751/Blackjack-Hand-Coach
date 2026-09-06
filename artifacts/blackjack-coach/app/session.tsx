@@ -44,6 +44,7 @@ export default function SessionScreen() {
   const endingRef = useRef(false);
   const totalBet = bets.reduce((sum, bet) => sum + bet, 0);
   const current = hands[active];
+  const availableBetSpots = rules?.multipleHandsEnabled === false ? bets.slice(0, 1) : bets;
 
   useEffect(() => { if (!activeSession && !endingRef.current) router.replace('/'); }, [activeSession, router]);
   if (!activeSession || !rules) return null;
@@ -281,11 +282,13 @@ export default function SessionScreen() {
                    </View>
                  </View>
                  <View style={styles.bettingSpots}>
-                   {bets.map((bet, i) => (
-                     <TouchableOpacity testID={`bet-spot-${i + 1}`} key={i} activeOpacity={0.82} onPress={() => { setSelectedSpot(i); buzz(); }} style={[styles.betSeat, i === 1 ? styles.betSeatCenter : styles.betSeatOuter, selectedSpot === i && styles.betSeatSelected]}>
-                       <View style={[styles.chipWell, i === 1 && styles.chipWellCenter, selectedSpot === i && styles.chipWellSelected]}>
+                   {availableBetSpots.map((bet, i) => {
+                     const centered = availableBetSpots.length === 1 || i === 1;
+                     return (
+                     <TouchableOpacity testID={`bet-spot-${i + 1}`} key={i} activeOpacity={0.82} onPress={() => { setSelectedSpot(i); buzz(); }} style={[styles.betSeat, centered ? styles.betSeatCenter : styles.betSeatOuter, selectedSpot === i && styles.betSeatSelected]}>
+                       <View style={[styles.chipWell, centered && styles.chipWellCenter, selectedSpot === i && styles.chipWellSelected]}>
                          <View style={styles.chipWellInner}>
-                           {bet ? <ChipStack amount={bet} size={i === 1 ? 44 : 40} /> : <View style={styles.wellMarker}><Text style={styles.wellNumber}>{i + 1}</Text></View>}
+                           {bet ? <ChipStack amount={bet} size={centered ? 44 : 40} /> : <View style={styles.wellMarker}><Text style={styles.wellNumber}>{i + 1}</Text></View>}
                          </View>
                        </View>
                        {bet > 0 && <View style={styles.seatReadout}>
@@ -294,7 +297,7 @@ export default function SessionScreen() {
                          <View style={styles.seatPip} />
                        </View>}
                      </TouchableOpacity>
-                   ))}
+                   )})}
                  </View>
                  <Text style={styles.arcFootnote}>TAP A WELL, THEN SELECT A CHIP</Text>
               </Animated.View>
@@ -303,7 +306,7 @@ export default function SessionScreen() {
                 {hands.map((hand, index) => {
                    const isActive = index === active && phase === 'playing';
                    return (
-                     <View key={hand.id} style={[styles.handWrapper, { zIndex: isActive ? 10 : index, transform: [{ scale: isActive ? 1.15 : 0.9 }], marginTop: hands.length <= 3 && hand.spot === 2 ? 0 : 25 }]}>
+                      <View key={hand.id} style={[styles.handWrapper, { zIndex: isActive ? 10 : index, transform: [{ scale: isActive ? 1.15 : 0.9 }], marginTop: hands.length === 1 || (hands.length <= 3 && hand.spot === 2) ? 0 : 25 }]}>
                         <View style={styles.cardRow}>
                            {hand.cards.map((card, i) => <CardView key={card.id} card={card} index={i} />)}
                         </View>
