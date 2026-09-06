@@ -47,6 +47,7 @@ export default function SessionScreen() {
   const totalBet = bets.reduce((sum, bet) => sum + bet, 0);
   const current = hands[active];
   const availableBetSpots = rules?.multipleHandsEnabled === false ? bets.slice(0, 1) : bets;
+  const singleHandMode = availableBetSpots.length === 1;
 
   useEffect(() => { if (!activeSession && !endingRef.current) router.replace('/'); }, [activeSession, router]);
   if (!activeSession || !rules) return null;
@@ -310,13 +311,10 @@ export default function SessionScreen() {
 
         <View style={styles.spotsArea}>
            {phase === 'betting' ? (
-              <Animated.View entering={FadeInUp.duration(280)} style={[styles.bettingArc, isCompactTable && styles.bettingArcCompact]}>
-                 <View pointerEvents="none" style={styles.arcInlay}>
-                   <View style={[styles.arcStroke, styles.arcStrokeLeft]} />
-                   <View style={[styles.arcStroke, styles.arcStrokeCenter]} />
-                   <View style={[styles.arcStroke, styles.arcStrokeRight]} />
-                   <View style={styles.arcCaptionPlate}>
-                     <Text style={styles.arcCaption}>CHOOSE A SEAT · PLACE YOUR WAGER</Text>
+              <Animated.View entering={FadeInUp.duration(280)} style={[styles.bettingArc, isCompactTable && styles.bettingArcCompact, singleHandMode && styles.bettingArcSingle]}>
+                 <View pointerEvents="none" style={[styles.arcInlay, singleHandMode && styles.arcInlaySingle]}>
+                   <View style={[styles.arcCaptionPlate, singleHandMode && styles.arcCaptionPlateSingle]}>
+                     <Text style={styles.arcCaption}>{singleHandMode ? 'PLACE YOUR WAGER' : 'SELECT A POSITION · PLACE YOUR WAGER'}</Text>
                    </View>
                  </View>
                  <View style={styles.bettingSpots}>
@@ -337,7 +335,6 @@ export default function SessionScreen() {
                      </TouchableOpacity>
                    )})}
                  </View>
-                 <Text style={styles.arcFootnote}>TAP A WELL, THEN SELECT A CHIP</Text>
               </Animated.View>
           ) : (
              <View style={styles.handsArea}>
@@ -615,42 +612,40 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
    spotsArea: { flex: 1, justifyContent: 'flex-end', paddingBottom: 12 },
-   bettingArc: { height: 190, justifyContent: 'flex-end', overflow: 'hidden' },
-   bettingArcCompact: { height: 165 },
+   bettingArc: { height: 176, justifyContent: 'flex-end', overflow: 'hidden' },
+   bettingArcCompact: { height: 154 },
+   bettingArcSingle: { alignItems: 'center' },
    arcInlay: {
-     position: 'absolute', left: 8, right: 8, bottom: 15, height: 145,
-     borderTopWidth: 2, borderTopColor: 'rgba(217,184,99,0.7)',
+     position: 'absolute', left: 18, right: 18, bottom: 7, height: 126,
+     borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(217,184,99,0.48)',
      borderTopLeftRadius: 180, borderTopRightRadius: 180,
-     backgroundColor: 'rgba(7,39,17,0.14)',
+     backgroundColor: 'rgba(5,31,14,0.13)',
    },
-   arcStroke: { position: 'absolute', height: 2, backgroundColor: 'rgba(235,209,137,0.42)', top: 42 },
-   arcStrokeLeft: { width: '31%', left: 8, transform: [{ rotate: '-18deg' }] },
-   arcStrokeCenter: { width: '29%', left: '35.5%', top: 19 },
-   arcStrokeRight: { width: '31%', right: 8, transform: [{ rotate: '18deg' }] },
+   arcInlaySingle: { left: 0, right: 0, height: 116, borderWidth: 0, backgroundColor: 'transparent' },
    arcCaptionPlate: {
-     position: 'absolute', top: 22, alignSelf: 'center', paddingHorizontal: 12, paddingVertical: 3,
-     borderRadius: 9, backgroundColor: 'rgba(12,48,22,0.9)', borderWidth: 1, borderColor: 'rgba(217,184,99,0.36)',
+     position: 'absolute', top: 15, alignSelf: 'center', paddingHorizontal: 13, paddingVertical: 4,
+     borderRadius: 10, backgroundColor: '#0d3b1d',
    },
-   arcCaption: { fontFamily: 'Inter_700Bold', color: 'rgba(235,209,137,0.9)', fontSize: 8, letterSpacing: 1 },
-   bettingSpots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, paddingHorizontal: 24, zIndex: 2 },
+   arcCaptionPlateSingle: { top: -14 },
+   arcCaption: { fontFamily: 'Inter_700Bold', color: 'rgba(235,209,137,0.88)', fontSize: 8, letterSpacing: 1.1 },
+   bettingSpots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, paddingHorizontal: 24, paddingBottom: 16, zIndex: 2 },
    betSeat: { width: 88, alignItems: 'center' },
    betSeatOuter: { marginBottom: 2 },
    betSeatCenter: { marginBottom: 18 },
    betSeatSelected: { transform: [{ translateY: -3 }] },
    chipWell: {
-     width: 66, height: 66, borderRadius: 33, padding: 5, backgroundColor: 'rgba(8,37,17,0.75)',
-     borderWidth: 2, borderColor: 'rgba(217,184,99,0.58)', shadowColor: '#06180a',
-     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 4, elevation: 5,
+     width: 66, height: 66, borderRadius: 33, padding: 4, backgroundColor: 'rgba(6,32,14,0.72)',
+     borderWidth: 1.5, borderColor: 'rgba(217,184,99,0.52)', shadowColor: '#06180a',
+     shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.45, shadowRadius: 4, elevation: 4,
    },
    chipWellCenter: { width: 74, height: 74, borderRadius: 37, padding: 6 },
-   chipWellSelected: { borderColor: '#f0ce77', backgroundColor: 'rgba(52,84,33,0.88)', shadowColor: '#dfb75a', shadowOpacity: 0.38, shadowRadius: 7, elevation: 8 },
-   chipWellInner: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 30, borderWidth: 1, borderColor: 'rgba(0,0,0,0.5)', backgroundColor: 'rgba(0,0,0,0.15)' },
-   wellMarker: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, borderColor: 'rgba(235,209,137,0.38)', backgroundColor: 'rgba(235,209,137,0.08)', alignItems: 'center', justifyContent: 'center' },
+   chipWellSelected: { borderColor: '#f0ce77', backgroundColor: 'rgba(35,72,30,0.84)', shadowColor: '#dfb75a', shadowOpacity: 0.28, shadowRadius: 6, elevation: 7 },
+   chipWellInner: { flex: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 30, backgroundColor: 'rgba(0,0,0,0.12)' },
+   wellMarker: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
    wellNumber: { fontFamily: 'Inter_700Bold', fontSize: 9, color: 'rgba(235,209,137,0.62)' },
    seatReadout: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7, height: 16 },
    seatPip: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(235,209,137,0.55)' },
    seatText: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 0.7, color: '#ebd189', textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
-   arcFootnote: { textAlign: 'center', fontFamily: 'Inter_700Bold', fontSize: 8, letterSpacing: 1.25, color: 'rgba(235,209,137,0.72)', marginTop: 6, zIndex: 2 },
   handsArea: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12 },
   handWrapper: { alignItems: 'center' },
   handInfo: { alignItems: 'center', marginTop: 8 },
