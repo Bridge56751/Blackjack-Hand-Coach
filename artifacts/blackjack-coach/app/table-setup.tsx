@@ -26,7 +26,13 @@ export default function TableSetupScreen() {
   const actionHeight = 76 + Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 12);
 
   const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) =>
-    setRules(current => ({ ...current, name: 'Custom Table', [key]: value }));
+    setRules(current => {
+      const next = { ...current, name: 'Custom Table', [key]: value };
+      if (key === 'decks' && (value === 1 || value === 2) && next.accuracyMode === 'hilo-index') {
+        next.accuracyMode = 'basic';
+      }
+      return next;
+    });
   const selectPreset = (preset: TableRules) => setRules(normalizeTableRules(preset));
   const start = () => {
     startSession(rules);
@@ -39,6 +45,7 @@ export default function TableSetupScreen() {
     rules.surrender === 'late' ? 'Late surrender available' : 'No surrender',
     rules.multipleHandsEnabled ? 'Up to three hands per round' : 'One hand per round',
     rules.cardCountingEnabled ? 'Live Hi-Lo counter enabled' : 'Card counting display off',
+    rules.accuracyMode === 'hilo-index' ? 'Graded on Hi-Lo Index play' : 'Graded on Basic Strategy',
   ], [rules]);
 
   return (
@@ -177,9 +184,35 @@ export default function TableSetupScreen() {
           />
         </RuleSection>
 
+        <RuleSection title="Accuracy Standard" description="How Blackjack Coach grades your play." colors={colors}>
+          <RuleChoice
+            label="Basic Strategy"
+            detail="Exact rule-specific book play. The standard for learning the game."
+            selected={rules.accuracyMode !== 'hilo-index'}
+            onPress={() => update('accuracyMode', 'basic')}
+            testID="accuracy-basic"
+            colors={colors}
+          />
+          <RuleChoice
+            label="Hi-Lo Index Play"
+            detail="Count-adjusted H17/S17 multideck deviations, including the insurance index."
+            selected={rules.accuracyMode === 'hilo-index'}
+            onPress={() => update('accuracyMode', 'hilo-index')}
+            testID="accuracy-hilo-index"
+            colors={colors}
+            disabled={rules.decks === 1 || rules.decks === 2}
+            disabledDetail="Hi-Lo index mode requires a 4, 6, or 8-deck shoe."
+            last
+          />
+        </RuleSection>
+
         <RuleSection title="Advanced · Strategy Basis" description="How Blackjack Coach builds your advice." colors={colors}>
           <Text style={[styles.basisText, { color: colors.mutedForeground }]}>
-            Coaching uses total-dependent basic strategy for American hole-card blackjack, including the 3:2 payout, dealer peek, up to four split hands, and one card on split aces. Decks, dealer behavior, doubling, and surrender adjust the chart. Resplitting aces is saved to match your table, but does not change the first-decision chart.
+            {rules.accuracyMode === 'hilo-index'
+              ? 'Coaching grades against total-dependent basic strategy supplemented by Blackjack Apprenticeship\'s H17/S17 multideck deviation charts. '
+              : 'Coaching grades strictly against total-dependent basic strategy. '
+            }
+            It accounts for the 3:2 payout, dealer peek, up to four split hands, and one card on split aces. Decks, dealer behavior, doubling, and surrender adjust the chart. Resplitting aces is saved to match your table, but does not change the first-decision chart.
           </Text>
           <Text style={[styles.basisSource, { color: colors.mutedForeground }]}>Strategy method: BlackjackInfo configurable strategy engine.</Text>
         </RuleSection>
@@ -208,8 +241,23 @@ function DeckChip({ deck, selected, onPress, colors }: { deck: TableRules['decks
   return <TouchableOpacity testID={`deck-${deck}`} onPress={onPress} style={[styles.deckChip, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.card }]}><Text style={[styles.deckValue, { color: selected ? colors.primaryForeground : colors.foreground }]}>{deck}</Text><Text style={[styles.deckUnit, { color: selected ? colors.primaryForeground : colors.mutedForeground }]}>{deck === 1 ? 'DECK' : 'DECKS'}</Text></TouchableOpacity>;
 }
 
-function RuleChoice({ label, detail, selected, onPress, testID, colors, last = false }: { label: string; detail: string; selected: boolean; onPress: () => void; testID: string; colors: any; last?: boolean }) {
-  return <TouchableOpacity testID={testID} onPress={onPress} style={[styles.choice, !last && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }]}><View style={styles.choiceCopy}><Text style={[styles.choiceLabel, { color: colors.foreground }]}>{label}</Text><Text style={[styles.choiceDetail, { color: colors.mutedForeground }]}>{detail}</Text></View><View style={[styles.radio, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>{selected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}</View></TouchableOpacity>;
+function RuleChoice({ label, detail, selected, onPress, testID, colors, disabled = false, disabledDetail, last = false }: { label: string; detail: string; selected: boolean; onPress: () => void; testID: string; colors: any; disabled?: boolean; disabledDetail?: string; last?: boolean }) {
+  return (
+    <TouchableOpacity
+      testID={testID}
+      onPress={disabled ? undefined : onPress}
+      activeOpacity={disabled ? 1 : 0.2}
+      style={[styles.choice, !last && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth }, disabled && { opacity: 0.5 }]}
+    >
+      <View style={styles.choiceCopy}>
+        <Text style={[styles.choiceLabel, { color: colors.foreground }]}>{label}</Text>
+        <Text style={[styles.choiceDetail, { color: colors.mutedForeground }]}>{disabled && disabledDetail ? disabledDetail : detail}</Text>
+      </View>
+      <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>
+        {selected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
+      </View>
+    </TouchableOpacity>
+  );
 }
 
 function doubleLabel(rule: DoubleRule) {

@@ -1,5 +1,6 @@
 export type DoubleRule = 'any-two' | 'nine-eleven' | 'ten-eleven';
 export type SurrenderRule = 'none' | 'late';
+export type AccuracyMode = 'basic' | 'hilo-index';
 
 export type TableRules = {
   name: string;
@@ -11,6 +12,8 @@ export type TableRules = {
   resplitAces: boolean;
   cardCountingEnabled?: boolean;
   multipleHandsEnabled?: boolean;
+  /** Basic strategy is the safe default for saved sessions created before indices existed. */
+  accuracyMode?: AccuracyMode;
 };
 
 export const DEFAULT_TABLE_RULES: TableRules = {
@@ -23,6 +26,7 @@ export const DEFAULT_TABLE_RULES: TableRules = {
   resplitAces: true,
   cardCountingEnabled: false,
   multipleHandsEnabled: false,
+  accuracyMode: 'basic',
 };
 
 export const TABLE_PRESETS: TableRules[] = [
@@ -33,12 +37,17 @@ export const TABLE_PRESETS: TableRules[] = [
 ];
 
 export function normalizeTableRules(rules?: Partial<TableRules>): TableRules {
-  return {
+  const normalized: TableRules = {
     ...DEFAULT_TABLE_RULES,
     ...rules,
     cardCountingEnabled: rules?.cardCountingEnabled ?? false,
     multipleHandsEnabled: rules?.multipleHandsEnabled ?? false,
+    accuracyMode: rules?.accuracyMode === 'hilo-index' ? 'hilo-index' : 'basic',
   };
+  if ((normalized.decks === 1 || normalized.decks === 2) && normalized.accuracyMode === 'hilo-index') {
+    normalized.accuracyMode = 'basic';
+  }
+  return normalized;
 }
 
 export function rulesSummary(rules?: Partial<TableRules>): string {

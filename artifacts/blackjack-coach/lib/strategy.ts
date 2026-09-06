@@ -1,10 +1,54 @@
-import fixture from './strategy-fixtures.json';
-import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
+import fixture from './strategy-fixtures.json' with { type: 'json' };
+import { DEFAULT_TABLE_RULES, normalizeTableRules } from './rules.ts';
+import type { TableRules } from './rules.ts';
 
 export type Action = 'H' | 'S' | 'D' | 'P' | 'R' | 'I' | 'N';
 type StrategyCode = Action | 'd' | 'r' | 'p';
 type StrategyTable = Record<string, StrategyCode[]>;
 type Strategy = { hard: StrategyTable; soft: StrategyTable; pairs: StrategyTable };
+
+export const FULL_HILO_INDEX_PROFILE_ID = 'blackjack-apprenticeship-h17-s17-deviation-charts-multideck-v1';
+/**
+ * Exact transcription of Blackjack Apprenticeship's public 2018 H17/S17
+ * Deviation Charts. It is deliberately a 4/6/8-deck American-peek
+ * profile only: do not use it for one or two decks (their indices differ).
+ */
+export const FULL_HILO_INDEX_PROFILE = {
+  id: FULL_HILO_INDEX_PROFILE_ID,
+  version: 1,
+  source: 'Blackjack Apprenticeship, H17/S17 Deviation Charts, 2018 public PDFs',
+  supportedDecks: [4, 6, 8] as const,
+  game: 'American peek',
+  unsupported: '1- and 2-deck count indices are not supported; callers must disable hilo-index for those games.',
+} as const;
+
+type IndexDirection = 'above' | 'at-or-above' | 'below' | 'at-or-below';
+type HandKind = 'hard' | 'soft' | 'pair';
+export type HiLoIndexRule = { kind: HandKind; hand: string; dealer: string; action: Action; index: number; direction?: IndexDirection; surrenderContext?: 'none' | 'late' };
+
+// The source charts define 0+ as a positive running count and 0- as a negative
+// running count. Explicit strict directions preserve those boundaries without
+// rounding the true count.
+export const FULL_HILO_INDEX_RULES: Record<'h17' | 's17', HiLoIndexRule[]> = {
+  s17: [
+    { kind: 'pair', hand: 'T,T', dealer: '4', action: 'P', index: 6 }, { kind: 'pair', hand: 'T,T', dealer: '5', action: 'P', index: 5 }, { kind: 'pair', hand: 'T,T', dealer: '6', action: 'P', index: 4 },
+    { kind: 'soft', hand: 'A,6', dealer: '2', action: 'D', index: 1 }, { kind: 'soft', hand: 'A,8', dealer: '4', action: 'D', index: 3 }, { kind: 'soft', hand: 'A,8', dealer: '5', action: 'D', index: 1 }, { kind: 'soft', hand: 'A,8', dealer: '6', action: 'D', index: 1 },
+    { kind: 'hard', hand: '8', dealer: '6', action: 'D', index: 2, surrenderContext: 'none' }, { kind: 'hard', hand: '9', dealer: '2', action: 'D', index: 1 }, { kind: 'hard', hand: '9', dealer: '7', action: 'D', index: 3 },
+    { kind: 'hard', hand: '10', dealer: 'A', action: 'D', index: 4 }, { kind: 'hard', hand: '10', dealer: 'T', action: 'D', index: 4 }, { kind: 'hard', hand: '11', dealer: 'A', action: 'D', index: 1 },
+    { kind: 'hard', hand: '12', dealer: '2', action: 'S', index: 3 }, { kind: 'hard', hand: '12', dealer: '3', action: 'S', index: 2 }, { kind: 'hard', hand: '12', dealer: '4', action: 'H', index: 0, direction: 'below' }, { kind: 'hard', hand: '13', dealer: '2', action: 'H', index: -1, direction: 'at-or-below' },
+    { kind: 'hard', hand: '15', dealer: 'T', action: 'S', index: 4, surrenderContext: 'none' }, { kind: 'hard', hand: '16', dealer: '9', action: 'S', index: 4, surrenderContext: 'none' }, { kind: 'hard', hand: '16', dealer: 'T', action: 'S', index: 0, direction: 'above', surrenderContext: 'none' },
+    { kind: 'hard', hand: '16', dealer: '8', action: 'R', index: 4, surrenderContext: 'late' }, { kind: 'hard', hand: '16', dealer: '9', action: 'H', index: -1, direction: 'at-or-below', surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: '9', action: 'R', index: 2, surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: 'T', action: 'H', index: 0, direction: 'below', surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: 'A', action: 'R', index: 2, surrenderContext: 'late' },
+  ],
+  h17: [
+    { kind: 'pair', hand: 'T,T', dealer: '4', action: 'P', index: 6 }, { kind: 'pair', hand: 'T,T', dealer: '5', action: 'P', index: 5 }, { kind: 'pair', hand: 'T,T', dealer: '6', action: 'P', index: 4 },
+    { kind: 'soft', hand: 'A,6', dealer: '2', action: 'D', index: 1 }, { kind: 'soft', hand: 'A,8', dealer: '4', action: 'D', index: 3 }, { kind: 'soft', hand: 'A,8', dealer: '5', action: 'D', index: 1 }, { kind: 'soft', hand: 'A,8', dealer: '6', action: 'S', index: 0, direction: 'below' },
+    { kind: 'hard', hand: '8', dealer: '6', action: 'D', index: 2, surrenderContext: 'none' }, { kind: 'hard', hand: '9', dealer: '2', action: 'D', index: 1 }, { kind: 'hard', hand: '9', dealer: '7', action: 'D', index: 3 },
+    { kind: 'hard', hand: '10', dealer: 'A', action: 'D', index: 3 }, { kind: 'hard', hand: '10', dealer: 'T', action: 'D', index: 4 },
+    { kind: 'hard', hand: '12', dealer: '2', action: 'S', index: 3 }, { kind: 'hard', hand: '12', dealer: '3', action: 'S', index: 2 }, { kind: 'hard', hand: '12', dealer: '4', action: 'H', index: 0, direction: 'below' }, { kind: 'hard', hand: '13', dealer: '2', action: 'H', index: -1, direction: 'at-or-below' },
+    { kind: 'hard', hand: '15', dealer: 'T', action: 'S', index: 4, surrenderContext: 'none' }, { kind: 'hard', hand: '15', dealer: 'A', action: 'S', index: 5, surrenderContext: 'none' }, { kind: 'hard', hand: '16', dealer: '9', action: 'S', index: 4, surrenderContext: 'none' }, { kind: 'hard', hand: '16', dealer: 'T', action: 'S', index: 0, direction: 'above', surrenderContext: 'none' }, { kind: 'hard', hand: '16', dealer: 'A', action: 'S', index: 3, surrenderContext: 'none' },
+    { kind: 'hard', hand: '16', dealer: '8', action: 'R', index: 4, surrenderContext: 'late' }, { kind: 'hard', hand: '16', dealer: '9', action: 'H', index: -1, direction: 'at-or-below', surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: '9', action: 'R', index: 2, surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: 'T', action: 'H', index: 0, direction: 'below', surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: 'A', action: 'H', index: -1, direction: 'below', surrenderContext: 'late' },
+  ],
+};
 
 const strategies = fixture.strategies as Record<string, Strategy>;
 
@@ -74,7 +118,12 @@ export function getSoftTotal(cards: string[]): { total: number, isSoft: boolean 
   return { total: sum, isSoft: aces > 0 && sum <= 21 };
 }
 
-export function getBasicStrategy(playerCards: string[], dealerCard: string, tableRules: TableRules = DEFAULT_TABLE_RULES): Action {
+export function getBasicStrategy(
+  playerCards: string[],
+  dealerCard: string,
+  tableRules: TableRules = DEFAULT_TABLE_RULES,
+  legality: { canDouble?: boolean; canSplit?: boolean; canSurrender?: boolean } = {},
+): Action {
   const dealer = dealerColumn(dealerCard);
   const ranks = playerCards.map(cardRank);
   if (dealer === null || ranks.some((rank) => rank === null) || ranks.length === 0) return 'H';
@@ -83,15 +132,25 @@ export function getBasicStrategy(playerCards: string[], dealerCard: string, tabl
   const strategy = strategyFor(rules);
   const { total, isSoft } = getSoftTotal(ranks as string[]);
   const initial = ranks.length === 2;
-  const canDouble = initial && (rules.doubleRule === 'any-two' ||
+  const canDoubleByTable = initial && (rules.doubleRule === 'any-two' ||
     (rules.doubleRule === 'nine-eleven' && total >= 9 && total <= 11) ||
     (rules.doubleRule === 'ten-eleven' && total >= 10 && total <= 11));
-  const canSurrender = initial && rules.surrender === 'late';
+  const canDoubleNow = canDoubleByTable && (legality.canDouble ?? true);
+  const canSurrenderNow = initial && rules.surrender === 'late' && (legality.canSurrender ?? true);
+  const canSplitNow = initial && (legality.canSplit ?? true);
 
   // A ten-value pair includes T, 10, J, Q, and K; pairs take precedence.
   if (initial && ranks[0] === ranks[1]) {
     const pairCode = cell(strategy.pairs, `${ranks[0]},${ranks[1]}`, dealer);
-    if (pairCode) return resolveCode(pairCode, canDouble, canSurrender, true);
+    if (pairCode) {
+      const unavailablePureSplit = pairCode === 'P' && !canSplitNow;
+      const unavailableSplitOrSurrender = pairCode === 'p' && !canSplitNow && !canSurrenderNow;
+      // If a split-only instruction is unavailable, play the cards as their
+      // ordinary hard/soft total rather than assuming Hit.
+      if (!unavailablePureSplit && !unavailableSplitOrSurrender) {
+        return resolveCode(pairCode, canDoubleNow, canSurrenderNow, canSplitNow);
+      }
+    }
   }
 
   let code: StrategyCode | null;
@@ -105,7 +164,116 @@ export function getBasicStrategy(playerCards: string[], dealerCard: string, tabl
 
   // Safe total bounds preserve sensible blackjack behavior outside fixture rows.
   if (!code) return isSoft ? (total >= 18 ? 'S' : 'H') : (total >= 17 ? 'S' : 'H');
-  return resolveCode(code, canDouble, canSurrender, false);
+  return resolveCode(code, canDoubleNow, canSurrenderNow, false);
+}
+
+export type RecommendationInput = {
+  playerCards: string[];
+  dealerCard: string;
+  tableRules?: Partial<TableRules>;
+  runningCount: number;
+  unseenCards: number;
+  /** These reflect the current hand/round, rather than merely table rules. */
+  canDouble?: boolean;
+  canSplit?: boolean;
+  canSurrender?: boolean;
+  insurance?: boolean;
+};
+
+export type Recommendation = {
+  action: Action;
+  basicAction: Action;
+  indexApplied: boolean;
+  threshold: number | null;
+  thresholdDirection: IndexDirection | null;
+  thresholdLabel: string | null;
+  trueCount: number;
+  runningCount: number;
+  explanation: string;
+  profileId: string | null;
+};
+
+function actionIsLegal(action: Action, input: RecommendationInput): boolean {
+  if (action === 'D') return input.canDouble ?? false;
+  if (action === 'P') return input.canSplit ?? false;
+  if (action === 'R') return input.canSurrender ?? false;
+  return true;
+}
+
+function indexHand(cards: string[]): { kind: HandKind; hand: string } | null {
+  const ranks = cards.map(cardRank);
+  if (ranks.length === 0 || ranks.some((rank) => !rank)) return null;
+  // Pair identification comes first and prevents a T,T hand from colliding
+  // with the hard-20 table (or any other hard-table row).
+  if (ranks.length === 2 && ranks[0] === ranks[1]) return { kind: 'pair', hand: `${ranks[0]},${ranks[1]}` };
+  const { total, isSoft } = getSoftTotal(ranks as string[]);
+  if (isSoft && total >= 13 && total <= 20) return { kind: 'soft', hand: `A,${total - 11}` };
+  return { kind: 'hard', hand: String(total) };
+}
+
+function computedTrueCount(runningCount: number, unseenCards: number): number {
+  return runningCount / Math.max(unseenCards / 52, 0.25);
+}
+
+/**
+ * Pure, pre-action strategy selection. `unseenCards` must be captured before
+ * dealing/hitting the next card; TC is intentionally never rounded.
+ */
+export function getRecommendation(input: RecommendationInput): Recommendation {
+  const rules = normalizeTableRules(input.tableRules);
+  const tc = computedTrueCount(input.runningCount, input.unseenCards);
+  const basicAction = input.insurance ? 'N' : getBasicStrategy(
+    input.playerCards,
+    input.dealerCard,
+    rules,
+    { canDouble: input.canDouble, canSplit: input.canSplit, canSurrender: input.canSurrender },
+  );
+  const base: Omit<Recommendation, 'action' | 'explanation'> = {
+    basicAction, indexApplied: false, threshold: null, thresholdDirection: null, thresholdLabel: null,
+    trueCount: tc, runningCount: input.runningCount, profileId: null,
+  };
+  if (rules.accuracyMode !== 'hilo-index') {
+    return { ...base, action: basicAction, explanation: input.insurance ? 'Basic strategy declines insurance.' : 'Basic strategy.' };
+  }
+  if (!FULL_HILO_INDEX_PROFILE.supportedDecks.includes(rules.decks as 4 | 6 | 8)) {
+    return { ...base, action: basicAction, explanation: 'Hi-Lo index profile supports American-peek 4-, 6-, and 8-deck games only; basic strategy used.' };
+  }
+  if (input.insurance) {
+    const applies = tc >= 3;
+    return {
+      ...base, action: applies ? 'I' : 'N', indexApplied: applies, threshold: 3,
+      thresholdDirection: 'at-or-above', thresholdLabel: 'TC ≥ +3', profileId: FULL_HILO_INDEX_PROFILE_ID,
+      explanation: applies ? 'Hi-Lo insurance index: take insurance at TC ≥ +3.' : 'Hi-Lo insurance index has not reached TC +3.',
+    };
+  }
+  const hand = indexHand(input.playerCards);
+  const dealer = cardRank(input.dealerCard);
+  if (!hand || !dealer) return { ...base, action: basicAction, explanation: 'Invalid hand; basic strategy used.', profileId: FULL_HILO_INDEX_PROFILE_ID };
+  const chart = FULL_HILO_INDEX_RULES[rules.dealerHitsSoft17 ? 'h17' : 's17'];
+  const rule = chart.find((entry) =>
+    entry.kind === hand.kind && entry.hand === hand.hand && entry.dealer === dealer &&
+    (entry.surrenderContext === undefined || entry.surrenderContext === rules.surrender) &&
+    actionIsLegal(entry.action, input));
+  if (!rule) {
+    return { ...base, action: basicAction, explanation: 'No applicable legal Hi-Lo index; basic strategy used.', profileId: FULL_HILO_INDEX_PROFILE_ID };
+  }
+  const direction = rule.direction ?? 'at-or-above';
+  const count = rule.index === 0 ? input.runningCount : tc;
+  const applies = direction === 'above' ? count > rule.index
+    : direction === 'at-or-above' ? count >= rule.index
+    : direction === 'below' ? count < rule.index
+    : count <= rule.index;
+  const signed = rule.index > 0 ? `+${rule.index}` : String(rule.index);
+  const comparator = direction === 'above' ? '>'
+    : direction === 'at-or-above' ? '≥'
+    : direction === 'below' ? '<'
+    : '≤';
+  const label = `${rule.index === 0 ? 'RC' : 'TC'} ${comparator} ${signed}`;
+  return {
+    ...base, action: applies ? rule.action : basicAction, indexApplied: applies, threshold: rule.index,
+    thresholdDirection: direction, thresholdLabel: label, profileId: FULL_HILO_INDEX_PROFILE_ID,
+    explanation: applies ? `Hi-Lo index applied: ${getActionName(rule.action)} at ${label}.` : `Hi-Lo index requires ${label}; basic strategy used.`,
+  };
 }
 
 export function getActionName(action: Action): string {

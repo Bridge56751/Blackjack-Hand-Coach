@@ -13,6 +13,15 @@ export type Decision = {
   chosen: Action;
   correct: Action;
   isCorrect: boolean;
+  basicAction?: Action;
+  countAdjustedAction?: Action;
+  gradingMode?: 'basic' | 'hilo-index';
+  runningCount?: number;
+  trueCount?: number;
+  indexApplied?: boolean;
+  thresholdLabel?: string | null;
+  explanation?: string;
+  profileId?: string | null;
 };
 
 export type HandRecord = {
@@ -128,6 +137,12 @@ export function getSessionStats(session: Session) {
   const total = decisions.length;
   const correct = decisions.filter(d => d.isCorrect).length;
   const accuracy = total === 0 ? 0 : correct / total;
+
+  const bookCorrect = decisions.filter(d => d.chosen === (d.basicAction ?? d.correct)).length;
+  const bookAccuracy = total === 0 ? 0 : bookCorrect / total;
+  const indexComparable = decisions.filter(d => d.countAdjustedAction !== undefined);
+  const indexCorrect = indexComparable.filter(d => d.chosen === d.countAdjustedAction).length;
+  const indexAccuracy = indexComparable.length === 0 ? 0 : indexCorrect / indexComparable.length;
   
   let grade = 'F';
   if (accuracy >= 0.98) grade = 'A+';
@@ -136,5 +151,17 @@ export function getSessionStats(session: Session) {
   else if (accuracy >= 0.80) grade = 'C';
   else if (accuracy >= 0.70) grade = 'D';
 
-  return { total, correct, accuracy, grade, decisions };
+  return {
+    total,
+    correct,
+    accuracy,
+    bookCorrect,
+    bookAccuracy,
+    indexCorrect,
+    indexAccuracy,
+    hasIndexComparison: indexComparable.length === total && total > 0,
+    grade,
+    decisions,
+    mode: normalizeTableRules(session.rules).accuracyMode ?? 'basic',
+  };
 }

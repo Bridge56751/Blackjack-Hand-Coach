@@ -31,6 +31,7 @@ export default function ReportScreen() {
   const bankrollAdded = session.bankrollAdded ?? 0;
   const bankrollEnd = session.bankrollEnd ?? bankrollStart + bankrollAdded;
   const bankrollResult = bankrollEnd - bankrollStart - bankrollAdded;
+  const isIndex = stats.mode === 'hilo-index';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -49,11 +50,19 @@ export default function ReportScreen() {
               </View>
               <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}% Accuracy</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} / {stats.total} correct decisions</Text>
+              {isIndex && (
+                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Basic Strategy match: {Math.round(stats.bookAccuracy * 100)}%</Text>
+              )}
+              {!isIndex && stats.hasIndexComparison && (
+                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Hi-Lo Index match: {Math.round(stats.indexAccuracy * 100)}%</Text>
+              )}
                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} rounds played</Text>
                {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${bankrollStart}{bankrollAdded ? ` + $${bankrollAdded} added` : ''} → ${bankrollEnd}</Text>}
                <Text style={[styles.resultText, { color: bankrollResult >= 0 ? colors.primary : colors.mutedForeground }]}>Session result {bankrollResult >= 0 ? '+' : ''}${bankrollResult}</Text>
                <Text style={[styles.tableName, { color: colors.foreground }]}>{session.rules?.name ?? 'Vegas 6 Deck'}</Text>
-               <View style={[styles.rulesPill, { borderColor: colors.border }]}><Text style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)}</Text></View>
+               <View style={[styles.rulesPill, { borderColor: colors.border }]}>
+                 <Text testID="report-strategy-mode" style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)} · {isIndex ? 'Hi-Lo Index Play' : 'Basic Strategy'}</Text>
+               </View>
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
@@ -62,7 +71,7 @@ export default function ReportScreen() {
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="award" size={40} color={colors.primary} style={{ marginBottom: 12 }} />
                 <Text style={[styles.emptyText, { color: colors.foreground }]}>Perfect Session!</Text>
-                <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>You made zero basic strategy mistakes.</Text>
+                <Text style={[styles.emptySub, { color: colors.mutedForeground }]}>You made zero {isIndex ? 'count-adjusted' : 'basic strategy'} mistakes.</Text>
               </View>
             )}
           </>
@@ -95,6 +104,15 @@ export default function ReportScreen() {
                 <Text style={[styles.feedbackValue, { color: colors.primary }]}>{getActionName(item.correct)}</Text>
               </View>
             </View>
+            {isIndex && item.gradingMode === 'hilo-index' && (
+              <View style={styles.indexContext}>
+                <Text style={[styles.indexContextText, { color: colors.mutedForeground }]}>RC: {item.runningCount} · TC: {item.trueCount?.toFixed(1)}</Text>
+                {item.explanation && <Text style={[styles.indexContextDesc, { color: colors.mutedForeground }]}>{item.explanation}</Text>}
+                {item.basicAction && item.basicAction !== item.correct && (
+                  <Text style={[styles.indexContextDesc, { color: colors.mutedForeground, marginTop: 4 }]}>Book play would be {getActionName(item.basicAction)}</Text>
+                )}
+              </View>
+            )}
           </View>
         )}
       />
@@ -188,4 +206,7 @@ const styles = StyleSheet.create({
   feedbackCol: { alignItems: 'center' },
   feedbackLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', marginBottom: 4 },
   feedbackValue: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  indexContext: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
+  indexContextText: { fontSize: 12, fontFamily: 'Inter_700Bold', letterSpacing: 0.5, marginBottom: 4 },
+  indexContextDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 18 },
 });

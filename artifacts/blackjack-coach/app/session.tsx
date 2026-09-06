@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCoach, Decision } from '@/lib/context';
-import { getBasicStrategy, getActionName, Action } from '@/lib/strategy';
+import { getBasicStrategy, getActionName, Action, getRecommendation } from '@/lib/strategy';
 import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealInitialRound, dealerShouldHit, draw, handTotal, isBlackjack, settleHand, settleInsurance, shouldReshuffle } from '@/lib/game';
 import { CardView } from '@/components/CardView';
 import { Chip, ChipStack } from '@/components/Chip';
@@ -53,11 +53,32 @@ export default function SessionScreen() {
   useEffect(() => { if (!activeSession && !endingRef.current) router.replace('/'); }, [activeSession, router]);
   if (!activeSession || !rules) return null;
 
-  const addDecision = (action: Action, hand: GameHand) => {
+  const addDecision = (action: Action, hand: GameHand, isInsurance = false) => {
     if (!dealer[0]) return;
     const playerCards = hand.cards.map(cardRankForStrategy);
     const dealerCard = cardRankForStrategy(dealer[0]);
-    const correct = getBasicStrategy(playerCards, dealerCard, rules);
+    const unseenCards = shoe.length + (dealer[1] && phase !== 'settled' ? 1 : 0);
+
+    const recommendationInput = {
+      playerCards,
+      dealerCard,
+      runningCount: runningCountRef.current,
+      unseenCards,
+      canDouble: bankroll >= hand.bet && canDouble(hand, rules),
+      canSplit: bankroll >= hand.bet && canSplit(hand, rules, handsAtSpot(hand, hands)),
+      canSurrender: hand.cards.length === 2 && !hand.fromSplit && rules.surrender === 'late',
+      insurance: isInsurance,
+    };
+    const basicRec = getRecommendation({
+      ...recommendationInput,
+      tableRules: { ...rules, accuracyMode: 'basic' },
+    });
+    const countRec = getRecommendation({
+      ...recommendationInput,
+      tableRules: { ...rules, accuracyMode: 'hilo-index' },
+    });
+    const rec = rules.accuracyMode === 'hilo-index' ? countRec : basicRec;
+
     decisionsRef.current = [...decisionsRef.current, {
       id: uid(),
       spot: hand.spot,
@@ -66,8 +87,17 @@ export default function SessionScreen() {
       playerCardLabels: hand.cards.map(cardLabel),
       dealerCardLabel: cardLabel(dealer[0]),
       chosen: action,
-      correct,
-      isCorrect: correct === action,
+      correct: rec.action,
+      isCorrect: rec.action === action,
+      basicAction: basicRec.action,
+      countAdjustedAction: countRec.action,
+      gradingMode: rules.accuracyMode ?? 'basic',
+      runningCount: rec.runningCount,
+      trueCount: rec.trueCount,
+      indexApplied: rec.indexApplied,
+      thresholdLabel: rec.thresholdLabel,
+      explanation: rec.explanation,
+      profileId: rec.profileId,
     }];
   };
   const handsAtSpot = (hand: GameHand, all = hands) => all.filter(item => item.spot === hand.spot).length;
@@ -76,9 +106,11 @@ export default function SessionScreen() {
     return !hand.surrendered && total < 21 && !isBlackjack(hand) && (!hand.splitAces || canSplit(hand, rules, handsAtSpot(hand, all)));
   };
   const countCards = (...cards: Card[]) => {
-    if (!rules.cardCountingEnabled) return;
-    runningCountRef.current += cards.reduce((sum, card) => sum + hiLoValue(card), 0);
-    setRunningCount(runningCountRef.current);
+    const sum = cards.reduce((sum, card) => sum + hiLoValue(card), 0);
+    runningCountRef.current += sum;
+    if (rules.cardCountingEnabled || rules.accuracyMode === 'hilo-index') {
+      setRunningCount(runningCountRef.current);
+    }
   };
   const resetCount = () => {
     runningCountRef.current = 0;
@@ -169,11 +201,11 @@ export default function SessionScreen() {
   const buyInsurance = async () => {
     const stake = hands.filter(hand => !hand.fromSplit).reduce((sum, hand) => sum + hand.bet, 0) / 2;
     if (!stake || bankroll < stake) return;
-    const lead = hands[0]; addDecision('I', lead);
+    const lead = hands[0]; if (lead) addDecision('I', lead, true);
     setBankroll(value => value - stake); setInsuranceBet(stake); setPhase('dealing'); await resolveInsurance(stake);
   };
 
-  const declineInsurance = async () => { if (hands[0]) addDecision('N', hands[0]); setPhase('dealing'); await resolveInsurance(0); };
+  const declineInsurance = async () => { if (hands[0]) addDecision('N', hands[0], true); setPhase('dealing'); await resolveInsurance(0); };
 
   const act = async (action: Action) => {
     if (!current || phase !== 'playing') return;
@@ -230,8 +262,18 @@ export default function SessionScreen() {
   const unseenCards = shoe.length + (dealer[1] && phase !== 'settled' ? 1 : 0);
   const currentTrueCount = trueCount(runningCount, unseenCards);
   const playerEdge = estimatedPlayerEdge(rules, currentTrueCount);
-  const hintAction = phase === 'playing' && current && dealer[0]
-    ? getBasicStrategy(current.cards.map(cardRankForStrategy), cardRankForStrategy(dealer[0]), rules)
+  const hintRec = (phase === 'playing' && current && dealer[0]) || (phase === 'insurance' && hands[0] && dealer[0])
+    ? getRecommendation({
+        playerCards: phase === 'insurance' ? hands[0].cards.map(cardRankForStrategy) : current.cards.map(cardRankForStrategy),
+        dealerCard: cardRankForStrategy(dealer[0]),
+        tableRules: rules,
+        runningCount: runningCountRef.current,
+        unseenCards,
+        canDouble: canD,
+        canSplit: canP,
+        canSurrender: canR,
+        insurance: phase === 'insurance',
+      })
     : undefined;
   const hitStandOdds = phase === 'playing' && current && dealer[0]
     ? estimateHitStandOdds(
@@ -275,11 +317,19 @@ export default function SessionScreen() {
       <View style={styles.tableCenter}>
         <View testID="hint-panel" style={styles.hintPanel}>
           <Text style={styles.hintEyebrow}>BLACKJACK COACH</Text>
-          {hintAction && hitStandOdds ? (
+          {hintRec && hitStandOdds ? (
             <>
               <View style={styles.hintRecommendation}>
-                <Text style={styles.hintLabel}>HINT</Text>
-                <Text testID="hint-action" style={styles.hintAction}>{getActionName(hintAction).toUpperCase()}</Text>
+                <View>
+                  <Text style={styles.hintLabel}>HINT</Text>
+                  <Text testID="hint-strategy-mode" style={[styles.hintModeLabel, { color: rules.accuracyMode === 'hilo-index' ? '#d9c58f' : '#888' }]}>{rules.accuracyMode === 'hilo-index' ? 'HI-LO INDEX' : 'BASIC PLAY'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text testID="hint-action" style={styles.hintAction}>{getActionName(hintRec.action).toUpperCase()}</Text>
+                  {hintRec.indexApplied && hintRec.thresholdLabel && (
+                    <Text testID="hint-index-threshold" style={styles.hintThresholdText}>{hintRec.thresholdLabel}</Text>
+                  )}
+                </View>
               </View>
               <View style={styles.oddsRow}>
                 <View><Text style={styles.oddsLabel}>STAND</Text><Text testID="stand-odds" style={styles.oddsValue}>{hitStandOdds.standWin.toFixed(0)}%</Text></View>
@@ -287,6 +337,21 @@ export default function SessionScreen() {
                 <View><Text style={styles.oddsLabel}>HIT ONCE</Text><Text testID="hit-odds" style={styles.oddsValue}>{hitStandOdds.hitWin.toFixed(0)}%</Text></View>
               </View>
               <Text style={styles.oddsNote}>ESTIMATED WIN CHANCE</Text>
+            </>
+          ) : hintRec && phase === 'insurance' ? (
+            <>
+              <View style={styles.hintRecommendation}>
+                <View>
+                  <Text style={styles.hintLabel}>HINT</Text>
+                  <Text testID="hint-strategy-mode" style={[styles.hintModeLabel, { color: rules.accuracyMode === 'hilo-index' ? '#d9c58f' : '#888' }]}>{rules.accuracyMode === 'hilo-index' ? 'HI-LO INDEX' : 'BASIC PLAY'}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text testID="hint-action" style={styles.hintAction}>{getActionName(hintRec.action).toUpperCase()}</Text>
+                  {hintRec.indexApplied && hintRec.thresholdLabel && (
+                    <Text testID="hint-index-threshold" style={styles.hintThresholdText}>{hintRec.thresholdLabel}</Text>
+                  )}
+                </View>
+              </View>
             </>
           ) : (
             <Text style={styles.hintWaiting}>{phase === 'settled' ? 'ROUND COMPLETE' : 'HINTS APPEAR AFTER DEAL'}</Text>
@@ -742,9 +807,11 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   hintEyebrow: { color: '#d9c58f', fontFamily: 'Inter_700Bold', fontSize: 6, letterSpacing: .8 },
-  hintRecommendation: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 4 },
+  hintRecommendation: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
   hintLabel: { color: 'rgba(243,240,232,0.52)', fontFamily: 'Inter_600SemiBold', fontSize: 6, letterSpacing: .8 },
+  hintModeLabel: { fontFamily: 'Inter_700Bold', fontSize: 5, letterSpacing: 0.8, marginTop: 1 },
   hintAction: { color: '#f3f0e8', fontFamily: 'Inter_700Bold', fontSize: 12, letterSpacing: .7 },
+  hintThresholdText: { color: '#d9c58f', fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: 0.5, marginTop: 1 },
   hintWaiting: { color: 'rgba(243,240,232,0.62)', fontFamily: 'Inter_600SemiBold', fontSize: 7, lineHeight: 10, letterSpacing: .5, marginTop: 7 },
   oddsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5 },
   oddsDivider: { width: 1, height: 20, backgroundColor: 'rgba(217,197,143,0.2)' },
