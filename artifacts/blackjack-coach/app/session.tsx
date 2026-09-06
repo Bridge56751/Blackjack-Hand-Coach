@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Dimensions } from 'react-native';
-import { Feather, MaterialCommunityIcons, FontAwesome5, Ionicons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -193,23 +193,19 @@ export default function SessionScreen() {
     <View style={styles.page}>
       <LinearGradient colors={['#185a2d', '#0d3619']} style={StyleSheet.absoluteFill} />
 
-      {/* Top Chrome */}
-      <View style={[styles.topChrome, { paddingTop: Math.max(insets.top, 10) }]}>
-        <View style={styles.chromePill}>
-          <Text style={styles.chromePillText}>{bankroll.toLocaleString()}</Text>
-          <View style={styles.chromePillPlus}><MaterialCommunityIcons name="plus" size={14} color="#fff" /></View>
-        </View>
-
-        <View style={styles.chromeCenter}>
-          <View style={styles.chromeCircle}><Text style={styles.chromeCircleText}>{decksRemaining}</Text></View>
-          <View style={styles.chromeBar}>
-            <View style={[styles.chromeBarFill, { width: `${(shoe.length / (rules.decks * 52)) * 100}%` }]} />
-          </View>
-        </View>
-
-        <TouchableOpacity testID="end-session" onPress={end} style={styles.chromeCircleButton}>
-          <Ionicons name="settings-sharp" size={18} color="#fff" />
+      {/* Blackjack Coach header */}
+      <View style={[styles.tableHeader, { paddingTop: Math.max(insets.top, 10) }]}>
+        <TouchableOpacity testID="end-session" onPress={end} style={styles.headerExit}>
+          <Feather name="log-out" size={17} color="#d9c58f" />
         </TouchableOpacity>
+        <View style={styles.headerBrand}>
+          <Text style={styles.headerBrandMain}>BLACKJACK</Text>
+          <Text style={styles.headerBrandSub}>COACH · {decksRemaining} DECKS · {rules.decks * 52 - shoe.length} USED</Text>
+        </View>
+        <View style={styles.headerBankroll}>
+          <Text style={styles.headerBankrollLabel}>BANKROLL</Text>
+          <Text style={styles.headerBankrollValue}>${bankroll.toLocaleString()}</Text>
+        </View>
       </View>
 
       {/* Table Area */}
@@ -387,90 +383,59 @@ function ActionButton({ id, label, color, icon, onPress, disabled, size = 'large
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#0d3619' },
-  topChrome: {
+  tableHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+    paddingBottom: 8,
     zIndex: 10,
   },
-  chromePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#3b2413',
-    borderColor: '#ebd189',
-    borderWidth: 2,
-    borderRadius: 20,
-    paddingLeft: 12,
-    paddingRight: 4,
-    paddingVertical: 4,
-    minWidth: 90,
-    justifyContent: 'space-between'
-  },
-  chromePillText: {
-    color: '#fff',
-    fontFamily: 'Inter_700Bold',
-    fontSize: 14,
-    marginRight: 8,
-  },
-  chromePillPlus: {
-    backgroundColor: '#58b43b',
-    borderRadius: 12,
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#ebd189'
-  },
-  chromeCenter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  chromeCircle: {
-    backgroundColor: '#2870d4',
-    borderColor: '#ebd189',
-    borderWidth: 2,
-    borderRadius: 16,
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 2,
-  },
-  chromeCircleText: {
-    color: '#fff',
-    fontFamily: 'Inter_700Bold',
-    fontSize: 14,
-  },
-  chromeBar: {
-    flex: 1,
-    height: 8,
-    backgroundColor: '#133e80',
-    borderColor: '#ebd189',
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    borderTopRightRadius: 4,
-    borderBottomRightRadius: 4,
-    marginLeft: -4,
-    overflow: 'hidden'
-  },
-  chromeBarFill: {
-    height: '100%',
-    backgroundColor: '#58b43b'
-  },
-  chromeCircleButton: {
-    backgroundColor: '#3b2413',
-    borderColor: '#ebd189',
-    borderWidth: 2,
-    borderRadius: 20,
+  headerExit: {
     width: 36,
     height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(217,197,143,0.38)',
+    backgroundColor: 'rgba(6,34,15,0.55)',
+  },
+  headerBrand: {
+    position: 'absolute',
+    left: 70,
+    right: 105,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerBrandMain: {
+    fontFamily: 'Inter_700Bold',
+    color: '#f3f0e8',
+    fontSize: 13,
+    letterSpacing: 3,
+  },
+  headerBrandSub: {
+    fontFamily: 'Inter_600SemiBold',
+    color: 'rgba(217,197,143,0.72)',
+    fontSize: 7,
+    letterSpacing: 1.1,
+    marginTop: 3,
+  },
+  headerBankroll: {
+    minWidth: 88,
+    alignItems: 'flex-end',
+  },
+  headerBankrollLabel: {
+    fontFamily: 'Inter_600SemiBold',
+    color: 'rgba(217,197,143,0.68)',
+    fontSize: 7,
+    letterSpacing: 1.2,
+  },
+  headerBankrollValue: {
+    fontFamily: 'Inter_700Bold',
+    color: '#f3f0e8',
+    fontSize: 15,
+    marginTop: 1,
   },
   tableCenter: { flex: 1, justifyContent: 'flex-start' },
   dealerChipBank: {

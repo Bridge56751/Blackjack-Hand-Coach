@@ -3,8 +3,8 @@ name: Blackjack table visual standard
 description: The durable visual bar for Blackjack Coach gameplay screens.
 ---
 
-Gameplay should feel like a polished classic portrait blackjack game: full-screen felt, a compact bronze casino HUD, oversized overlapping cards, curved printed rules, dimensional chips, and glossy color-coded controls near the bottom.
+Gameplay should feel like a polished classic portrait blackjack game: full-screen felt, oversized overlapping cards, curved printed rules, dimensional chips, and glossy color-coded controls near the bottom.
 
-**Why:** The user rejected flat top-down layouts even when they contained accurate casino equipment, then explicitly approved a classic full-felt mobile reference with prominent cards and tactile red/blue/green controls.
+**Why:** The user rejected flat top-down layouts and approved a classic full-felt mobile reference for its table treatment, but explicitly did not want that reference's balance, level, or settings chrome copied.
 
-**How to apply:** Judge future table changes against the current classic mobile-casino direction, not generic dashboard conventions. Preserve visible dealer chips and three playable positions, but present empty wagers as one cohesive table marking rather than labeled floating placeholders.
+**How to apply:** Use references for the physical table, cards, markings, chips, and controls only. Keep Blackjack Coach's surrounding UI original and restrained. Present empty wagers as one cohesive table marking.
