@@ -1,6 +1,7 @@
 import { canDouble, canSplit, createShoe, dealInitialRound, dealerShouldHit, handTotal, settleHand, settleInsurance } from '../lib/game.ts';
 import type { GameHand } from '../lib/game.ts';
 import { DEFAULT_TABLE_RULES } from '../lib/rules.ts';
+import { estimatedPlayerEdge, hiLoValue, trueCount } from '../lib/counting.ts';
 let cardId = 0;
 const c = (rank: any) => ({ rank, suit: '♠' as const, id: `${rank}-${cardId++}` });
 const hand = (cards: any[], bet = 10): GameHand => ({ id: 'h', cards: cards.map(c), bet, doubled: false, surrendered: false, splitAces: false, fromSplit: false });
@@ -21,4 +22,7 @@ ok(ordered.hands.reduce((sum, item) => sum + item.bet, 0) === 30 && settleInsura
 const simultaneousBlackjacksMainCredit = settleHand(hand(['A','K']), [c('A'),c('T')]).credit;
 const simultaneousBlackjacksInsurance = settleInsurance(5, true);
 ok(simultaneousBlackjacksMainCredit + simultaneousBlackjacksInsurance.credit - 10 - 5 === 10, 'player and dealer blackjack with insurance');
+ok(hiLoValue(c('2')) === 1 && hiLoValue(c('7')) === 0 && hiLoValue(c('A')) === -1, 'Hi-Lo card values');
+ok(trueCount(6, 156) === 2, 'true count uses fractional decks remaining');
+ok(estimatedPlayerEdge(DEFAULT_TABLE_RULES, 2) > estimatedPlayerEdge(DEFAULT_TABLE_RULES, 0), 'positive true count improves estimated player edge');
 console.log('Blackjack game validation passed.');

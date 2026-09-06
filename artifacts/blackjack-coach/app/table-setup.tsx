@@ -37,6 +37,7 @@ export default function TableSetupScreen() {
     rules.dealerHitsSoft17 ? 'Dealer hits soft 17' : 'Dealer stands on soft 17',
     doubleLabel(rules.doubleRule),
     rules.surrender === 'late' ? 'Late surrender available' : 'No surrender',
+    rules.cardCountingEnabled ? 'Live Hi-Lo counter enabled' : 'Card counting display off',
   ], [rules]);
 
   return (
@@ -141,6 +142,18 @@ export default function TableSetupScreen() {
           <RuleChoice label="Double after splitting" detail="Double down after dividing a pair into two hands." selected={rules.doubleAfterSplit} onPress={() => update('doubleAfterSplit', !rules.doubleAfterSplit)} testID="double-after-split" colors={colors} />
           <RuleChoice label="Late surrender" detail="Give up after the dealer checks for blackjack and lose half your bet." selected={rules.surrender === 'late'} onPress={() => update('surrender', rules.surrender === 'late' ? 'none' as SurrenderRule : 'late' as SurrenderRule)} testID="late-surrender" colors={colors} />
           <RuleChoice label="Resplit aces" detail="Split another pair of aces after your first ace split." selected={rules.resplitAces} onPress={() => update('resplitAces', !rules.resplitAces)} testID="resplit-aces" colors={colors} last />
+        </RuleSection>
+
+        <RuleSection title="Card Counting" description="Optional live practice aid for learning the Hi-Lo system." colors={colors}>
+          <RuleChoice
+            label="Show live Hi-Lo count"
+            detail="Displays the running count, true count, and estimated player or house edge during play."
+            selected={rules.cardCountingEnabled === true}
+            onPress={() => update('cardCountingEnabled', !rules.cardCountingEnabled)}
+            testID="card-counting-toggle"
+            colors={colors}
+            last
+          />
         </RuleSection>
 
         <RuleSection title="Advanced · Strategy Basis" description="How Blackjack Coach builds your advice." colors={colors}>

@@ -11,6 +11,7 @@ import { getBasicStrategy, Action } from '@/lib/strategy';
 import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealInitialRound, dealerShouldHit, draw, handTotal, isBlackjack, settleHand, settleInsurance } from '@/lib/game';
 import { CardView } from '@/components/CardView';
 import { Chip, ChipStack } from '@/components/Chip';
+import { estimatedPlayerEdge, hiLoValue, trueCount } from '@/lib/counting';
 
 type Phase = 'betting' | 'dealing' | 'insurance' | 'playing' | 'settled';
 const chips = [5, 25, 100, 250, 500];
@@ -36,6 +37,8 @@ export default function SessionScreen() {
   const [lastNet, setLastNet] = useState(0);
   const [insuranceBet, setInsuranceBet] = useState(0);
   const [insuranceNet, setInsuranceNet] = useState<number | undefined>();
+  const [runningCount, setRunningCount] = useState(0);
+  const runningCountRef = useRef(0);
   const decisionsRef = useRef<Decision[]>([]);
   const roundBetsRef = useRef<number[]>([0, 0, 0]);
   const endingRef = useRef(false);
@@ -57,15 +60,26 @@ export default function SessionScreen() {
     const total = handTotal(hand.cards).total;
     return !hand.surrendered && total < 21 && !isBlackjack(hand) && (!hand.splitAces || canSplit(hand, rules, handsAtSpot(hand, all)));
   };
+  const countCards = (...cards: Card[]) => {
+    if (!rules.cardCountingEnabled) return;
+    runningCountRef.current += cards.reduce((sum, card) => sum + hiLoValue(card), 0);
+    setRunningCount(runningCountRef.current);
+  };
+  const resetCount = () => {
+    runningCountRef.current = 0;
+    setRunningCount(0);
+  };
 
   const settle = async (finalHands: GameHand[], initialDealer: Card[], shoeNow: Card[], forcedInsNet?: number, forcedInsBet?: number) => {
     setPhase('settled');
     let dealerCards = initialDealer;
+    if (initialDealer[1]) countCards(initialDealer[1]);
     const needsDealer = finalHands.some(hand => !hand.surrendered && handTotal(hand.cards).total <= 21 && !isBlackjack(hand));
     await sleep(300); setDealer([...dealerCards]);
     while (needsDealer && dealerShouldHit(dealerCards, rules)) {
       await sleep(380);
       const next = draw(shoeNow); shoeNow = next.shoe; dealerCards = [...dealerCards, next.card];
+      countCards(next.card);
       setDealer(dealerCards); buzz();
     }
     const resolved = finalHands.map(hand => ({ ...hand, ...settleHand(hand, dealerCards) }));
@@ -97,7 +111,9 @@ export default function SessionScreen() {
     roundBetsRef.current = [...bets];
     setBankroll(value => value - totalBet); setLastBets([...bets]); setBets([0, 0, 0]);
     setPhase('dealing'); setMessage('DEALING...'); setInsuranceBet(0); setInsuranceNet(undefined); decisionsRef.current = [];
-    const fresh = shoe.length < Math.round(rules.decks * 52 * .28) ? createShoe(rules.decks) : shoe;
+    const needsShuffle = shoe.length < Math.round(rules.decks * 52 * .28);
+    const fresh = needsShuffle ? createShoe(rules.decks) : shoe;
+    if (needsShuffle) resetCount();
     const round = dealInitialRound(fresh, bets, uid);
     const shown = round.hands.map(hand => ({ ...hand, cards: [] }));
     setDealer([]); setHands(shown); setShoe(round.shoe);
@@ -105,6 +121,7 @@ export default function SessionScreen() {
       await sleep(280);
       if (event.kind === 'dealer') setDealer(old => [...old, event.card]);
       else setHands(old => old.map(hand => hand.spot === event.spot ? { ...hand, cards: [...hand.cards, event.card] } : hand));
+      if (!(event.kind === 'dealer' && event.hidden)) countCards(event.card);
       buzz();
     }
     setHands(round.hands); setDealer(round.dealer);
@@ -152,6 +169,7 @@ export default function SessionScreen() {
       if (current.splitAces) return;
       setPhase('dealing'); await sleep(180); const next = draw(shoe);
       const updated = hands.map((hand, i) => i === active ? { ...hand, cards: [...hand.cards, next.card] } : hand);
+      countCards(next.card);
       setHands(updated); setShoe(next.shoe);
       if (handTotal(updated[active].cards).total >= 21) { await sleep(300); return advance(updated, next.shoe, active); }
       setPhase('playing'); return;
@@ -159,6 +177,7 @@ export default function SessionScreen() {
     if (action === 'D' && bankroll >= current.bet) {
       setPhase('dealing'); setBankroll(value => value - current.bet);
       const next = draw(shoe); const updated = hands.map((hand, i) => i === active ? { ...hand, bet: hand.bet * 2, doubled: true, cards: [...hand.cards, next.card] } : hand);
+      countCards(next.card);
       setHands(updated); setShoe(next.shoe); await sleep(350); return advance(updated, next.shoe, active);
     }
     if (action === 'P' && bankroll >= current.bet && canSplit(current, rules, handsAtSpot(current))) {
@@ -167,6 +186,7 @@ export default function SessionScreen() {
       const left: GameHand = { ...current, id: uid(), cards: [current.cards[0]], fromSplit: true, splitAces: aces, doubled: false, surrendered: false };
       const right: GameHand = { ...current, id: uid(), cards: [current.cards[1]], fromSplit: true, splitAces: aces, doubled: false, surrendered: false };
       let next = draw(shoe); left.cards.push(next.card); await sleep(280); next = draw(next.shoe); right.cards.push(next.card);
+      countCards(left.cards[left.cards.length - 1], right.cards[right.cards.length - 1]);
       const updated = [...hands.slice(0, active), left, right, ...hands.slice(active + 1)];
       setHands(updated); setShoe(next.shoe); await sleep(300);
       if (aces) return advance(updated, next.shoe, active - 1);
@@ -187,6 +207,9 @@ export default function SessionScreen() {
   const canP = !!current && bankroll >= current.bet && canSplit(current, rules, handsAtSpot(current));
   const canR = !!current && current.cards.length === 2 && !current.fromSplit && rules.surrender === 'late';
   const decksRemaining = Math.ceil(shoe.length / 52);
+  const unseenCards = shoe.length + (dealer[1] && phase !== 'settled' ? 1 : 0);
+  const currentTrueCount = trueCount(runningCount, unseenCards);
+  const playerEdge = estimatedPlayerEdge(rules, currentTrueCount);
   const isCompactTable = Dimensions.get('window').height < 760;
 
   return (
@@ -216,6 +239,20 @@ export default function SessionScreen() {
             {chips.map(value => <Chip key={value} amount={value} size={20} />)}
           </View>
         </View>
+        {rules.cardCountingEnabled && (
+          <View testID="count-panel" style={styles.countPanel}>
+            <Text style={styles.countEyebrow}>HI-LO · LIVE</Text>
+            <View style={styles.countRow}>
+              <View><Text style={styles.countLabel}>RUNNING</Text><Text testID="running-count" style={styles.countValue}>{runningCount > 0 ? '+' : ''}{runningCount}</Text></View>
+              <View style={styles.countDivider} />
+              <View><Text style={styles.countLabel}>TRUE</Text><Text testID="true-count" style={styles.countValue}>{currentTrueCount > 0 ? '+' : ''}{currentTrueCount.toFixed(1)}</Text></View>
+            </View>
+            <Text testID="count-edge" style={[styles.edgeText, playerEdge >= 0 ? styles.playerEdge : styles.houseEdge]}>
+              {playerEdge >= 0 ? 'PLAYER' : 'HOUSE'} {Math.abs(playerEdge).toFixed(2)}%
+            </Text>
+            <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
+          </View>
+        )}
         <View style={styles.dealerArea}>
           <View style={styles.cardRow}>
             {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={i === 1 && phase !== 'settled'} />)}
@@ -465,6 +502,20 @@ const styles = StyleSheet.create({
     marginBottom: 1,
   },
   dealerChipBankRow: { flexDirection: 'row', gap: 1, alignItems: 'flex-end' },
+  countPanel: {
+    position: 'absolute', top: 2, right: 14, zIndex: 8, width: 104,
+    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(217,197,143,0.42)',
+    backgroundColor: 'rgba(6,31,14,0.88)', paddingHorizontal: 8, paddingVertical: 6,
+  },
+  countEyebrow: { fontFamily: 'Inter_700Bold', fontSize: 6, letterSpacing: 1.1, color: '#d9c58f', marginBottom: 5 },
+  countRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  countDivider: { width: 1, height: 23, backgroundColor: 'rgba(217,197,143,0.2)' },
+  countLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: .7, color: 'rgba(243,240,232,0.55)' },
+  countValue: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#f3f0e8', marginTop: 1 },
+  edgeText: { fontFamily: 'Inter_700Bold', fontSize: 8, letterSpacing: .5, marginTop: 5 },
+  playerEdge: { color: '#76d88a' },
+  houseEdge: { color: '#e58b82' },
+  edgeNote: { fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: .65, color: 'rgba(243,240,232,0.45)', marginTop: 1 },
   dealerArea: {
     alignItems: 'center',
     marginTop: 30,
