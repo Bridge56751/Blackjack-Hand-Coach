@@ -31,6 +31,7 @@ function RootLayoutNav() {
       contentStyle: { backgroundColor: colors.background },
     }}>
       <Stack.Screen name="index" options={{ title: 'Blackjack Coach' }} />
+      <Stack.Screen name="table-setup" options={{ headerShown: false, presentation: 'card' }} />
       <Stack.Screen name="session" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
       <Stack.Screen name="report/[id]" options={{ title: 'Session Report' }} />
     </Stack>

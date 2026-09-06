@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Action } from './strategy';
+import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
 
 export type Decision = {
   id: string;
@@ -21,12 +22,13 @@ export type Session = {
   id: string;
   date: string;
   hands: HandRecord[];
+  rules?: TableRules;
 };
 
 type CoachContextType = {
   history: Session[];
   activeSession: Session | null;
-  startSession: () => void;
+  startSession: (rules?: TableRules) => void;
   endSession: () => void;
   recordHand: (hand: HandRecord) => void;
   clearHistory: () => void;
@@ -40,7 +42,7 @@ export function CoachProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     AsyncStorage.getItem('blackjack_history').then(data => {
-      if (data) setHistory(JSON.parse(data));
+      if (data) setHistory(JSON.parse(data).map((session: Session) => ({ ...session, rules: normalizeTableRules(session.rules) })));
     });
   }, []);
 
@@ -49,11 +51,12 @@ export function CoachProvider({ children }: { children: ReactNode }) {
     await AsyncStorage.setItem('blackjack_history', JSON.stringify(newHistory));
   };
 
-  const startSession = () => {
+  const startSession = (rules: TableRules = DEFAULT_TABLE_RULES) => {
     setActiveSession({
       id: Date.now().toString(),
       date: new Date().toISOString(),
-      hands: []
+      hands: [],
+      rules: normalizeTableRules(rules),
     });
   };
 

@@ -5,6 +5,7 @@ import { getBasicStrategy, getActionName, Action, getSoftTotal } from '@/lib/str
 import { useColors } from '@/hooks/useColors';
 import { useRouter } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { rulesSummary } from '@/lib/rules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn, FadeOut, SlideInDown, SlideOutDown } from 'react-native-reanimated';
@@ -64,7 +65,7 @@ export default function SessionScreen() {
     if (!dealerCard || playerCards.length < 2) return;
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
-    const correct = getBasicStrategy(playerCards, dealerCard);
+    const correct = getBasicStrategy(playerCards, dealerCard, activeSession.rules);
     const isCorrect = action === correct;
     
     const decision: Decision = {
@@ -120,9 +121,10 @@ export default function SessionScreen() {
     router.back();
   };
 
-  const canSplit = playerCards.length === 2 && playerCards[0] === playerCards[1];
-  const canDouble = playerCards.length === 2;
-  const canSurrender = playerCards.length === 2;
+  const isFirstDecision = playerCards.length === 2;
+  const canSplit = isFirstDecision && playerCards[0] === playerCards[1];
+  const canDouble = isFirstDecision && (activeSession.rules?.doubleRule === 'any-two' || (activeSession.rules?.doubleRule === 'nine-eleven' && total >= 9 && total <= 11) || (activeSession.rules?.doubleRule === 'ten-eleven' && total >= 10 && total <= 11));
+  const canSurrender = isFirstDecision && activeSession.rules?.surrender === 'late';
   
   const showActions = dealerCard && playerCards.length >= 2 && !isBusted && !feedback && !askingOutcome;
   
@@ -132,12 +134,16 @@ export default function SessionScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop }]}>
-        <TouchableOpacity onPress={onEndSession} style={styles.headerBtn}>
+        <TouchableOpacity testID="end-session" onPress={onEndSession} style={styles.headerBtn}>
           <Text style={[styles.headerBtnText, { color: colors.destructive }]}>End Session</Text>
         </TouchableOpacity>
         <Text style={[styles.headerStats, { color: colors.mutedForeground }]}>
           Hand {activeSession.hands.length + 1}  •  {currentAcc}% Acc
         </Text>
+      </View>
+      <View style={[styles.rulesBar, { borderColor: colors.border, backgroundColor: colors.card }]}>
+        <Feather name="sliders" size={13} color={colors.primary} />
+        <Text style={[styles.rulesBarText, { color: colors.primary }]}>{rulesSummary(activeSession.rules)}</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false} keyboardShouldPersistTaps="handled">
@@ -150,6 +156,7 @@ export default function SessionScreen() {
             <TouchableOpacity 
               activeOpacity={0.8}
               onPress={() => !askingOutcome && !feedback && setActiveSelection('dealer')}
+              testID="dealer-card-slot"
               style={[
                 styles.cardSlot, 
                 { borderColor: colors.border },
@@ -175,6 +182,7 @@ export default function SessionScreen() {
             <TouchableOpacity 
               activeOpacity={1}
               onPress={() => !askingOutcome && !feedback && setActiveSelection('player')}
+              testID="player-card-zone"
               style={[
                 styles.playerZone,
                 activeSelection === 'player' && !askingOutcome && !feedback && { borderColor: colors.primary, borderWidth: 2 }
@@ -235,28 +243,31 @@ export default function SessionScreen() {
                   <TouchableOpacity 
                     key={o}
                     style={[styles.outcomeBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+                    testID={`outcome-${o.toLowerCase()}`}
                     onPress={() => handleOutcome(o as HandRecord['outcome'])}
                   >
                     <Text style={[styles.outcomeBtnText, { color: colors.foreground }]}>{o}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <TouchableOpacity style={styles.surrenderLink} onPress={() => handleOutcome('Surrender')}>
-                <Text style={[styles.surrenderText, { color: colors.mutedForeground }]}>Surrendered</Text>
-              </TouchableOpacity>
+              {activeSession.rules?.surrender === 'late' && (
+                <TouchableOpacity testID="outcome-surrender" style={styles.surrenderLink} onPress={() => handleOutcome('Surrender')}>
+                  <Text style={[styles.surrenderText, { color: colors.mutedForeground }]}>Surrendered</Text>
+                </TouchableOpacity>
+              )}
             </Animated.View>
           ) : showActions ? (
             <Animated.View entering={SlideInDown} exiting={FadeOut} style={styles.actionsGrid}>
               <View style={styles.actionRow}>
-                <ActionBtn action="H" label="Hit" onPress={() => handleAction('H')} colors={colors} />
-                <ActionBtn action="S" label="Stand" onPress={() => handleAction('S')} colors={colors} />
+                <ActionBtn action="H" label="Hit" onPress={() => handleAction('H')} colors={colors} testID="action-hit" />
+                <ActionBtn action="S" label="Stand" onPress={() => handleAction('S')} colors={colors} testID="action-stand" />
               </View>
               <View style={styles.actionRow}>
-                <ActionBtn action="D" label="Double" onPress={() => handleAction('D')} colors={colors} disabled={!canDouble} />
-                <ActionBtn action="P" label="Split" onPress={() => handleAction('P')} colors={colors} disabled={!canSplit} />
+                <ActionBtn action="D" label="Double" onPress={() => handleAction('D')} colors={colors} disabled={!canDouble} testID="action-double" />
+                <ActionBtn action="P" label="Split" onPress={() => handleAction('P')} colors={colors} disabled={!canSplit} testID="action-split" />
               </View>
               {canSurrender && (
-                <TouchableOpacity style={styles.surrenderLink} onPress={() => handleAction('R')}>
+                <TouchableOpacity testID="action-surrender" style={styles.surrenderLink} onPress={() => handleAction('R')}>
                   <Text style={[styles.surrenderText, { color: colors.mutedForeground }]}>Surrender</Text>
                 </TouchableOpacity>
               )}
@@ -295,7 +306,7 @@ export default function SessionScreen() {
 function CardInputBtn({ val, onPress, colors }: { val: string, onPress: () => void, colors: any }) {
   return (
     <TouchableOpacity 
-      style={[styles.inputBtn, { backgroundColor: colors.card, borderColor: colors.border }]} 
+      testID={`card-input-${val}`} style={[styles.inputBtn, { backgroundColor: colors.card, borderColor: colors.border }]} 
       onPress={onPress}
     >
       <Text style={[styles.inputBtnText, { color: colors.cardForeground }]}>{val}</Text>
@@ -303,10 +314,10 @@ function CardInputBtn({ val, onPress, colors }: { val: string, onPress: () => vo
   );
 }
 
-function ActionBtn({ action, label, onPress, colors, disabled }: { action: Action, label: string, onPress: () => void, colors: any, disabled?: boolean }) {
+function ActionBtn({ action, label, onPress, colors, disabled, testID }: { action: Action, label: string, onPress: () => void, colors: any, disabled?: boolean, testID?: string }) {
   return (
     <TouchableOpacity 
-      style={[
+      testID={testID ?? `action-${action}`} style={[
         styles.actionBtn, 
         { backgroundColor: colors.primary },
         disabled && { opacity: 0.3 }
@@ -331,6 +342,8 @@ const styles = StyleSheet.create({
   headerBtn: { padding: 8, marginLeft: -8 },
   headerBtnText: { fontSize: 16, fontFamily: 'Inter_500Medium' },
   headerStats: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  rulesBar: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 4 },
+  rulesBarText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   scrollContent: { flex: 1, justifyContent: 'space-between' },
   tableArea: {
     paddingHorizontal: 24,

@@ -124,7 +124,7 @@ const SessionRow = ({ item, index, router }: any) => {
           <Text style={styles.sessionDateText}>
             {new Date(item.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
           </Text>
-          <Text style={styles.sessionHandsText}>{item.hands.length} hands</Text>
+          <Text style={styles.sessionHandsText}>{item.hands.length} hands · {item.rules?.decks ?? 6}D {item.rules?.dealerHitsSoft17 ? 'H17' : 'S17'}</Text>
         </View>
         <View style={styles.sessionRight}>
           <Text style={styles.sessionAccText}>{Math.round(stats.accuracy * 100)}%</Text>
@@ -139,7 +139,7 @@ const SessionRow = ({ item, index, router }: any) => {
 };
 
 export default function DashboardScreen() {
-  const { history, startSession } = useCoach();
+  const { history } = useCoach();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -148,8 +148,7 @@ export default function DashboardScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    startSession();
-    router.push('/session');
+    router.push('/table-setup');
   };
 
   const overallDecisions = history.flatMap(s => s.hands.flatMap(h => h.decisions));

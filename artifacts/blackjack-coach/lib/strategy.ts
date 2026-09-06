@@ -1,3 +1,5 @@
+import { DEFAULT_TABLE_RULES, normalizeTableRules, TableRules } from './rules';
+
 export type Action = 'H' | 'S' | 'D' | 'P' | 'R';
 
 export function getSoftTotal(cards: string[]): { total: number, isSoft: boolean } {
@@ -20,7 +22,8 @@ export function getSoftTotal(cards: string[]): { total: number, isSoft: boolean 
   return { total: sum, isSoft: aces > 0 && sum <= 21 };
 }
 
-export function getBasicStrategy(playerCards: string[], dealerCard: string): Action {
+export function getBasicStrategy(playerCards: string[], dealerCard: string, tableRules: TableRules = DEFAULT_TABLE_RULES): Action {
+  const rules = normalizeTableRules(tableRules);
   const dIndex = dealerCard === 'A' ? 9 : dealerCard === 'T' ? 8 : parseInt(dealerCard) - 2; 
   
   if (playerCards.length === 2 && playerCards[0] === playerCards[1]) {
@@ -39,6 +42,10 @@ export function getBasicStrategy(playerCards: string[], dealerCard: string): Act
     ];
     let row = pairValue === 11 ? 9 : pairValue - 2;
     let action = splitTable[row][dIndex];
+    // DAS changes the marginal 2/3 and 4 pairs; H17 makes 9s slightly more aggressive.
+    if (!rules.doubleAfterSplit && (pairValue === 2 || pairValue === 3) && dIndex === 5) action = 'H';
+    if (!rules.doubleAfterSplit && pairValue === 4 && (dIndex === 3 || dIndex === 4)) action = 'H';
+    if (rules.dealerHitsSoft17 && pairValue === 9 && dIndex === 6) action = 'P';
     if (action === 'P') return 'P';
   }
 
@@ -58,11 +65,13 @@ export function getBasicStrategy(playerCards: string[], dealerCard: string): Act
       ['S','S','S','S','S','S','S','S','S','S'], // A,9
     ];
     if (otherVal >= 2 && otherVal <= 9) {
-      return softTable[otherVal - 2][dIndex];
+      let action = softTable[otherVal - 2][dIndex];
+      if (rules.dealerHitsSoft17 && total === 18 && dIndex === 1) action = 'D';
+      return allowDouble(action, total, rules) ? action : doubleFallback(total, dIndex);
     }
   } else if (isSoft && playerCards.length > 2) {
     if (total <= 17) return 'H';
-    if (total === 18) return (dIndex >= 7) ? 'H' : 'S';
+    if (total === 18) return (dIndex >= (rules.dealerHitsSoft17 ? 6 : 7)) ? 'H' : 'S';
     return 'S';
   }
 
@@ -81,13 +90,31 @@ export function getBasicStrategy(playerCards: string[], dealerCard: string): Act
   ];
   
   let action = hardTable[total - 9][dIndex];
+  // Shoe composition makes these common one/two-deck departures worth training.
+  if (rules.decks <= 2 && total === 12 && dealerCard === '4') action = 'S';
+  if (rules.decks === 1 && total === 16 && dealerCard === 'T') action = 'S';
+  if (rules.dealerHitsSoft17 && total === 11 && dealerCard === 'A') action = 'D';
+  if (rules.surrender === 'none' && action === 'R') action = total === 16 && dIndex === 7 ? 'S' : 'H';
   
   if (playerCards.length > 2) {
     if (action === 'D') action = 'H';
     if (action === 'R') action = 'H';
   }
   
+  if (action === 'D' && !allowDouble(action, total, rules)) return doubleFallback(total, dIndex);
   return action;
+}
+
+function allowDouble(action: Action, total: number, rules: TableRules) {
+  if (action !== 'D') return true;
+  if (rules.doubleRule === 'any-two') return true;
+  if (rules.doubleRule === 'nine-eleven') return total >= 9 && total <= 11;
+  return total >= 10 && total <= 11;
+}
+
+function doubleFallback(total: number, dealerIndex: number): Action {
+  // The only double recommendation that becomes a stand when unavailable is soft 18 vs 2–6.
+  return total === 18 && dealerIndex <= 4 ? 'S' : 'H';
 }
 
 export function getActionName(action: Action): string {

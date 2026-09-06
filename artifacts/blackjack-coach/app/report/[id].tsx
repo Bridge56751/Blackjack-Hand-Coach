@@ -5,6 +5,7 @@ import { useCoach, getSessionStats } from '@/lib/context';
 import { getActionName } from '@/lib/strategy';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
+import { rulesSummary } from '@/lib/rules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ReportScreen() {
@@ -45,6 +46,8 @@ export default function ReportScreen() {
               <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}% Accuracy</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} / {stats.total} correct decisions</Text>
               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} hands played</Text>
+               <Text style={[styles.tableName, { color: colors.foreground }]}>{session.rules?.name ?? 'Vegas 6 Deck'}</Text>
+               <View style={[styles.rulesPill, { borderColor: colors.border }]}><Text style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)}</Text></View>
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
@@ -118,6 +121,9 @@ const styles = StyleSheet.create({
   gradeTextBig: { fontSize: 48, fontFamily: 'Inter_700Bold' },
   accText: { fontSize: 24, fontFamily: 'Inter_600SemiBold', marginBottom: 8 },
   detailText: { fontSize: 16, fontFamily: 'Inter_400Regular', marginBottom: 4 },
+  tableName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', marginTop: 12 },
+  rulesPill: { marginTop: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
+  rulesText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   sectionTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold', marginBottom: 16 },
   emptyState: { padding: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
