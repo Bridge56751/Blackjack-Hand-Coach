@@ -1,0 +1,1 @@
+- [Blackjack table visual standard](blackjack-table-visual-standard.md) — Keep gameplay cinematic and physically dimensional; flat diagrammatic casino layouts are not acceptable.

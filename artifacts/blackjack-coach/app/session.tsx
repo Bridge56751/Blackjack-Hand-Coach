@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeInUp, FadeIn } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCoach, Decision } from '@/lib/context';
 import { getBasicStrategy, Action } from '@/lib/strategy';
 import { Card, GameHand, canDouble, canSplit, cardLabel, cardRankForStrategy, createShoe, dealerShouldHit, draw, handTotal, isBlackjack, settleHand, settleInsurance } from '@/lib/game';
@@ -15,7 +16,10 @@ type Phase = 'betting' | 'dealing' | 'insurance' | 'playing' | 'settled';
 const chips = [5, 25, 100, 250, 500];
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
 const buzz = (kind: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => { if (Platform.OS !== 'web') Haptics.impactAsync(kind); };
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const TABLE_W = SCREEN_WIDTH * 2.2;
+const TABLE_H = SCREEN_HEIGHT * 1.2;
 
 export default function SessionScreen() {
   const { activeSession, endSession, recordHand } = useCoach();
@@ -332,241 +336,350 @@ export default function SessionScreen() {
   const canD = current && bankroll >= current.bet && canDouble(current, rules);
   const canP = current && bankroll >= current.bet && canSplit(current, rules, hands.length);
   const canR = current && current.cards.length === 2 && !current.fromSplit && rules.surrender === 'late';
-  const handsScale = hands.length > 2 ? 0.75 : hands.length > 1 ? 0.9 : 1;
+  const handsScale = hands.length > 2 ? 0.75 : hands.length > 1 ? 0.85 : 1;
   const insuranceStake = hands[0]?.bet ? hands[0].bet / 2 : 0;
 
   return (
     <View style={[styles.page, { paddingTop: Math.max(insets.top, 8) + (Platform.OS === 'web' ? 40 : 0) }]}>
 
-      <View style={styles.tableLayout}>
-        {/* Dealer Equipment */}
-        <View style={styles.dealerEquip}>
-          <View style={styles.discardTray}>
-            <View style={styles.discardStack} />
-          </View>
-          <View style={styles.chipRack}>
-             <View style={[styles.rackStack, { backgroundColor: '#E63946' }]} />
-             <View style={[styles.rackStack, { backgroundColor: '#28A745' }]} />
-             <View style={[styles.rackStack, { backgroundColor: '#212529' }]} />
-             <View style={[styles.rackStack, { backgroundColor: '#1C39BB' }]} />
-             <View style={[styles.rackStack, { backgroundColor: '#6C5B7B' }]} />
-          </View>
-          <View style={styles.shoeOuter}>
-            <View style={styles.shoeStack} />
-            <View style={styles.shoeWall} />
-          </View>
-        </View>
+      {/* Casino Dark Background */}
+      <View style={StyleSheet.absoluteFill}>
+        <LinearGradient colors={['#05080A', '#020304']} style={StyleSheet.absoluteFill} />
+      </View>
 
-        {/* Dealer Cards */}
-        <View style={[styles.dealerCards, isShort && { minHeight: 100 }]}>
-          <View style={styles.handHeader}>
-            <View style={[styles.handTotalBadge, { opacity: (phase === 'settled' || phase === 'playing') ? 1 : 0 }]}>
-              <Text style={styles.handTotalText}>{phase === 'settled' ? handTotal(dealer).total : '?'}</Text>
-            </View>
-          </View>
-          <View style={styles.cardRow}>
-            {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={i === 1 && (phase === 'playing' || phase === 'dealing' || phase === 'insurance')} isShort={isShort} />)}
-          </View>
-        </View>
+      {/* 3D Table Surface */}
+      <View style={styles.tableShape}>
+         {/* Wood Rail Edge */}
+         <View style={styles.tableWood}>
+            {/* Leather Pad */}
+            <View style={styles.tableLeather}>
+               {/* Felt Surface */}
+                <LinearGradient colors={['#1F6A38', '#0D381A']} style={styles.felt}>
 
-        {/* Table Rules Typography */}
-        <View style={[styles.feltRules, isShort && { marginVertical: 6 }]}>
-          <Text style={[styles.markRulesBig, isShort && { fontSize: 16 }]}>BLACKJACK PAYS 3 TO 2</Text>
-          <Text style={[styles.markRulesSmall, isShort && { fontSize: 10 }]}>{rules?.dealerHitsSoft17 ? 'DEALER MUST HIT SOFT 17' : 'DEALER STANDS ON ALL 17'}</Text>
-          <Text style={[styles.markRulesSmall, isShort && { fontSize: 10 }]}>INSURANCE PAYS 2 TO 1</Text>
-        </View>
+                  {/* Subtle highlight spotlight */}
+                  <View style={styles.spotlight} />
 
-        {/* Center Felt - Betting & Player Cards */}
-        <View style={styles.centerFelt}>
-          {phase === 'betting' && bet === 0 && (
-            <View style={styles.betSpot}>
-              <Text style={styles.placeBetText}>PLACE BET</Text>
-            </View>
-          )}
-          {phase === 'betting' && bet > 0 && (
-            <Animated.View entering={FadeIn} style={styles.betStackWrapper}>
-              <ChipStack amount={bet} />
-              <View style={styles.betAmountBadge}>
-                <Text style={styles.betAmountText}>${bet}</Text>
-              </View>
-            </Animated.View>
-          )}
-          {phase !== 'betting' && (
-            <View style={[styles.playerHandsZone, { transform: [{ scale: handsScale }] }]}>
-              {hands.map((hand, index) => {
-                const isCurrent = index === active && phase === 'playing';
-                return (
-                  <View key={hand.id} style={styles.handBlock}>
-                    <View style={styles.handHeader}>
-                      <View style={[styles.handTotalBadge, isCurrent && styles.handTotalBadgeActive]}>
-                        <Text style={[styles.handTotalText, isCurrent && { color: '#000' }]}>
-                          {handTotal(hand.cards).total}{handTotal(hand.cards).soft ? 'S' : ''}
-                        </Text>
-                      </View>
-                      <View style={[styles.handBetBadge, isCurrent && styles.handBetBadgeActive]}>
-                        <Text style={[styles.handBetBadgeText, isCurrent && { color: '#000' }]}>${hand.bet}</Text>
-                      </View>
-                      {phase === 'settled' && hand.outcome && (
-                        <View style={[styles.outcomeBadge, getOutcomeStyle(hand.outcome)]}>
-                          <Text style={styles.outcomeText}>{hand.outcome.toUpperCase()}</Text>
-                        </View>
-                      )}
+                  {/* Dealer Equipment */}
+                  <View style={styles.dealerEquip}>
+                    <View style={styles.discardTray}>
+                      <View style={styles.discardStack} />
+                      <View style={styles.discardGlass} />
                     </View>
-                    <View style={styles.cardRow}>
-                      {hand.cards.map((card, i) => <CardView key={card.id} card={card} index={i} isShort={isShort} />)}
+                    <View style={styles.chipRack}>
+                       <LinearGradient colors={['#111', '#000']} style={[StyleSheet.absoluteFill, { borderRadius: 16 }]} />
+                       <View style={[styles.rackStack, { backgroundColor: '#D92534' }]} />
+                       <View style={[styles.rackStack, { backgroundColor: '#28A745' }]} />
+                       <View style={[styles.rackStack, { backgroundColor: '#0A0A0C' }]} />
+                       <View style={[styles.rackStack, { backgroundColor: '#102272' }]} />
+                       <View style={[styles.rackStack, { backgroundColor: '#463952' }]} />
+                    </View>
+                    <View style={styles.shoeOuter}>
+                      <View style={styles.shoeStack} />
+                      <LinearGradient colors={['#222', '#050505']} style={styles.shoeWall} />
                     </View>
                   </View>
-                );
-              })}
+
+                  {/* Dealer Cards */}
+                  <View style={[styles.dealerCards, isShort && { minHeight: 90 }]}>
+                    <View style={styles.handHeader}>
+                      <View style={[styles.handTotalBadge, { opacity: (phase === 'settled' || phase === 'playing') ? 1 : 0 }]}>
+                        <Text style={styles.handTotalText}>{phase === 'settled' ? handTotal(dealer).total : '?'}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.cardRow}>
+                      {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={i === 1 && (phase === 'playing' || phase === 'dealing' || phase === 'insurance')} isShort={isShort} isDealer />)}
+                    </View>
+                  </View>
+
+                  {/* Table Rules Typography */}
+                  <View style={[styles.feltRules, isShort && { marginVertical: 4 }]}>
+                    <Text style={[styles.markRulesBig, isShort && { fontSize: 14 }]}>BLACKJACK PAYS 3 TO 2</Text>
+                    <Text style={[styles.markRulesSmall, isShort && { fontSize: 9 }]}>{rules?.dealerHitsSoft17 ? 'DEALER MUST HIT SOFT 17' : 'DEALER STANDS ON ALL 17'}</Text>
+                    <Text style={[styles.markRulesSmall, isShort && { fontSize: 9 }]}>INSURANCE PAYS 2 TO 1</Text>
+                  </View>
+
+                  {/* Center Felt - Betting & Player Cards */}
+                  <View style={[styles.centerFelt, { paddingBottom: isShort ? 340 : 250 }]}>
+                    {phase === 'betting' && bet === 0 && (
+                      <View style={styles.betSpot}>
+                        <Text style={styles.placeBetText}>PLACE BET</Text>
+                      </View>
+                    )}
+                    {phase === 'betting' && bet > 0 && (
+                      <Animated.View entering={FadeIn} style={styles.betStackWrapper}>
+                        <View style={styles.betSpotOuter}>
+                          <ChipStack amount={bet} />
+                        </View>
+                        <View style={styles.betAmountBadge}>
+                          <Text style={styles.betAmountText}>${bet}</Text>
+                        </View>
+                      </Animated.View>
+                    )}
+                    {phase !== 'betting' && (
+                      <View style={[styles.playerHandsZone, { transform: [{ scale: handsScale }] }]}>
+                        {hands.map((hand, index) => {
+                          const isCurrent = index === active && phase === 'playing';
+                          return (
+                            <View key={hand.id} style={styles.handBlock}>
+                              <View style={styles.handHeader}>
+                                <View style={[styles.handTotalBadge, isCurrent && styles.handTotalBadgeActive]}>
+                                  <Text style={[styles.handTotalText, isCurrent && { color: '#000' }]}>
+                                    {handTotal(hand.cards).total}{handTotal(hand.cards).soft ? 'S' : ''}
+                                  </Text>
+                                </View>
+                                <View style={[styles.handBetBadge, isCurrent && styles.handBetBadgeActive]}>
+                                  <Text style={[styles.handBetBadgeText, isCurrent && { color: '#000' }]}>${hand.bet}</Text>
+                                </View>
+                                {phase === 'settled' && hand.outcome && (
+                                  <View style={[styles.outcomeBadge, getOutcomeStyle(hand.outcome)]}>
+                                    <Text style={styles.outcomeText}>{hand.outcome.toUpperCase()}</Text>
+                                  </View>
+                                )}
+                              </View>
+                              <View style={styles.cardRow}>
+                                {hand.cards.map((card, i) => <CardView key={card.id} card={card} index={i} isShort={isShort} />)}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+
+               </LinearGradient>
             </View>
-          )}
-        </View>
+         </View>
       </View>
 
       {/* Settle Message Overlay */}
       {phase === 'settled' && (
          <Animated.View entering={FadeInUp.duration(300)} style={styles.messageOverlay}>
-           <View style={styles.messageBadge}>
+           <LinearGradient colors={['rgba(20,20,20,0.95)', 'rgba(5,5,5,0.98)']} style={styles.messageBadge}>
              <Text style={[styles.messageText, lastNet > 0 && { color: '#F4D03F' }]}>{message}</Text>
-           </View>
+             {lastNet > 0 && <Text style={styles.messageSubText}>+${lastNet}</Text>}
+           </LinearGradient>
          </Animated.View>
       )}
 
-      {/* Bottom Wood/Leather Rail */}
-      <View style={[styles.rail, { paddingBottom: Math.max(insets.bottom, 16) + (Platform.OS === 'web' ? 26 : 0) }]}>
-        <View style={styles.railInner}>
-          <View style={styles.railStatus}>
-             <TouchableOpacity testID="end-session" onPress={end} style={styles.railBtn}>
-               <Feather name="log-out" size={16} color="#A0ABC0" />
-             </TouchableOpacity>
-             <View style={styles.bankrollDisplay}>
-               <Text style={styles.bankrollLabel}>BANKROLL</Text>
-               <Text style={styles.bankrollValue}>${bankroll.toLocaleString()}</Text>
-             </View>
-             <View style={styles.railStats}>
-               <Feather name="layers" size={14} color="#A0ABC0" />
-               <Text style={styles.statsValue}>{used}</Text>
-             </View>
-          </View>
+      {/* Bottom Rail / Dashboard Overlay */}
+      <View style={[styles.controlsOverlay, {
+        paddingBottom: Math.max(insets.bottom, isShort ? 8 : 16) + (Platform.OS === 'web' ? 26 : 0),
+      }]}>
+         <LinearGradient colors={['rgba(26,13,7,0.95)', 'rgba(15,7,3,0.98)']} style={[StyleSheet.absoluteFill, { borderTopLeftRadius: 24, borderTopRightRadius: 24 }]} />
+         <View style={styles.railBorder} />
 
-          {phase === 'betting' ? (
-             <View style={styles.controlsBetting}>
-               {bankroll < 5 && !bet ? (
-                  <TouchableOpacity testID="reset-bankroll" onPress={() => { setBankroll(1000); setMessage('PLACE YOUR BET'); }} style={styles.actionBtn}>
-                    <Text style={styles.actionBtnText}>RESET BANKROLL</Text>
-                  </TouchableOpacity>
-               ) : (
-                  <>
-                    <View style={styles.betTools}>
-                       <TouchableOpacity onPress={() => setBet(0)} disabled={!bet} style={[styles.utilBtn, !bet && styles.disabled]}>
-                         <Text style={styles.utilBtnText}>CLEAR</Text>
-                       </TouchableOpacity>
-                       <TouchableOpacity onPress={() => setBet(Math.min(lastBet, bankroll))} disabled={!lastBet || lastBet > bankroll} style={[styles.utilBtn, (!lastBet || lastBet > bankroll) && styles.disabled]}>
-                         <Text style={styles.utilBtnText}>REPEAT</Text>
-                       </TouchableOpacity>
-                    </View>
-                    <View style={styles.chipTray}>
-                      {chips.map(amount => (
-                        <TouchableOpacity key={amount} testID={`chip-${amount}`} disabled={bet + amount > bankroll} onPress={() => addChip(amount)} style={bet + amount > bankroll && styles.disabled}>
-                          <Chip amount={amount} disabled={bet + amount > bankroll} size={46} />
+         <View style={styles.railInner}>
+           <View style={styles.railStatus}>
+              <TouchableOpacity testID="end-session" onPress={end} style={styles.railBtn}>
+                <Feather name="log-out" size={18} color="#A0ABC0" />
+              </TouchableOpacity>
+              <View style={styles.bankrollDisplay}>
+                <Text style={styles.bankrollLabel}>BANKROLL</Text>
+                <Text style={styles.bankrollValue}>${bankroll.toLocaleString()}</Text>
+              </View>
+              <View style={styles.railStats}>
+                <Feather name="layers" size={14} color="#A0ABC0" />
+                <Text style={styles.statsValue}>{used}</Text>
+              </View>
+           </View>
+
+           {phase === 'betting' ? (
+              <View style={styles.controlsBetting}>
+                {bankroll < 5 && !bet ? (
+                   <TouchableOpacity testID="reset-bankroll" onPress={() => { setBankroll(1000); setMessage('PLACE YOUR BET'); }} style={[styles.actionBtn, styles.btnPrimary]}>
+                     <Text style={styles.actionBtnText}>RESET BANKROLL</Text>
+                   </TouchableOpacity>
+                ) : (
+                   <>
+                     <View style={styles.betTools}>
+                        <TouchableOpacity onPress={() => setBet(0)} disabled={!bet} style={[styles.utilBtn, !bet && styles.disabled]}>
+                          <Text style={styles.utilBtnText}>CLEAR</Text>
                         </TouchableOpacity>
-                      ))}
-                    </View>
-                    <TouchableOpacity testID="deal-button" disabled={!bet} onPress={deal} style={[styles.actionBtn, !bet && styles.disabled]}>
-                      <Text style={styles.actionBtnText}>DEAL</Text>
-                    </TouchableOpacity>
-                  </>
-               )}
-             </View>
-          ) : phase === 'insurance' ? (
-             <View style={styles.controlsInsurance}>
-                <Text style={styles.promptLabel}>INSURANCE?</Text>
-                <View style={styles.insureRow}>
-                  <TouchableOpacity testID="insurance-take" disabled={insuranceStake <= 0 || bankroll < insuranceStake} onPress={buyInsurance} style={[styles.actionBtn, { flex: 1, backgroundColor: '#F4D03F' }, (insuranceStake <= 0 || bankroll < insuranceStake) && styles.disabled]}>
-                    <Text style={[styles.actionBtnText, { color: '#000' }]}>INSURE ${insuranceStake}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity testID="insurance-decline" onPress={declineInsurance} style={[styles.actionBtn, { flex: 1, backgroundColor: '#1C2436' }]}>
-                    <Text style={styles.actionBtnText}>NO INSURANCE</Text>
-                  </TouchableOpacity>
-                </View>
-             </View>
-          ) : phase === 'playing' ? (
-             <View style={styles.controlsPlaying}>
-                <View style={styles.playRow}>
-                   <TouchableOpacity testID="action-hit" disabled={!!current?.splitAces} onPress={() => act('H')} style={[styles.actionBtn, { flex: 1, backgroundColor: '#28A745', height: 64 }, !!current?.splitAces && styles.disabled]}>
-                     <Text style={styles.actionBtnText}>HIT</Text>
-                   </TouchableOpacity>
-                   <TouchableOpacity testID="action-stand" onPress={() => act('S')} style={[styles.actionBtn, { flex: 1, backgroundColor: '#DC3545', height: 64 }]}>
-                     <Text style={styles.actionBtnText}>STAND</Text>
-                   </TouchableOpacity>
-                </View>
-                <View style={styles.playRow}>
-                   <TouchableOpacity testID="action-double" disabled={!canD} onPress={() => act('D')} style={[styles.utilBtn, { flex: 1, height: 48 }, !canD && styles.disabled]}>
-                     <Text style={styles.utilBtnText}>DOUBLE</Text>
-                   </TouchableOpacity>
-                   <TouchableOpacity testID="action-split" disabled={!canP} onPress={() => act('P')} style={[styles.utilBtn, { flex: 1, height: 48 }, !canP && styles.disabled]}>
-                     <Text style={styles.utilBtnText}>SPLIT</Text>
-                   </TouchableOpacity>
-                </View>
-                {canR && (
-                   <TouchableOpacity testID="action-surrender" onPress={() => act('R')} style={styles.surrenderBtn}>
-                     <Text style={styles.surrenderText}>SURRENDER</Text>
-                   </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setBet(Math.min(lastBet, bankroll))} disabled={!lastBet || lastBet > bankroll} style={[styles.utilBtn, (!lastBet || lastBet > bankroll) && styles.disabled]}>
+                          <Text style={styles.utilBtnText}>REPEAT</Text>
+                        </TouchableOpacity>
+                     </View>
+                     <View style={styles.chipTray}>
+                       {chips.map(amount => (
+                         <TouchableOpacity key={amount} testID={`chip-${amount}`} disabled={bet + amount > bankroll} onPress={() => addChip(amount)} style={bet + amount > bankroll && styles.disabled}>
+                           <Chip amount={amount} disabled={bet + amount > bankroll} size={46} />
+                         </TouchableOpacity>
+                       ))}
+                     </View>
+                     <TouchableOpacity testID="deal-button" disabled={!bet} onPress={deal} style={[styles.actionBtn, styles.btnPrimary, !bet && styles.disabled]}>
+                       <Text style={styles.actionBtnText}>DEAL</Text>
+                     </TouchableOpacity>
+                   </>
                 )}
-             </View>
-          ) : phase === 'dealing' ? (
-             <View style={styles.controlsDealing}>
-                <Text style={styles.dealingText}>DEALING...</Text>
-             </View>
-          ) : (
-             <View style={styles.controlsSettled}>
-                <TouchableOpacity testID="next-hand" onPress={newHand} style={[styles.actionBtn, { height: 64, backgroundColor: '#4361EE' }]}>
-                  <Text style={styles.actionBtnText}>NEXT HAND</Text>
-                </TouchableOpacity>
-             </View>
-          )}
-        </View>
+              </View>
+           ) : phase === 'insurance' ? (
+              <View style={styles.controlsInsurance}>
+                 <Text style={styles.promptLabel}>INSURANCE?</Text>
+                 <View style={styles.insureRow}>
+                   <TouchableOpacity testID="insurance-take" disabled={insuranceStake <= 0 || bankroll < insuranceStake} onPress={buyInsurance} style={[styles.actionBtn, styles.btnInsure, { flex: 1 }, (insuranceStake <= 0 || bankroll < insuranceStake) && styles.disabled]}>
+                     <Text style={[styles.actionBtnText, { color: '#000', textShadowColor: 'transparent' }]}>INSURE ${insuranceStake}</Text>
+                   </TouchableOpacity>
+                   <TouchableOpacity testID="insurance-decline" onPress={declineInsurance} style={[styles.actionBtn, styles.btnNeutral, { flex: 1 }]}>
+                     <Text style={styles.actionBtnText}>NO INSURANCE</Text>
+                   </TouchableOpacity>
+                 </View>
+              </View>
+           ) : phase === 'playing' ? (
+              <View style={styles.controlsPlaying}>
+                 <View style={styles.playRow}>
+                    <TouchableOpacity testID="action-hit" disabled={!!current?.splitAces} onPress={() => act('H')} style={[styles.actionBtn, styles.btnHit, { flex: 1 }, !!current?.splitAces && styles.disabled]}>
+                      <Text style={styles.actionBtnText}>HIT</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity testID="action-stand" onPress={() => act('S')} style={[styles.actionBtn, styles.btnStand, { flex: 1 }]}>
+                      <Text style={styles.actionBtnText}>STAND</Text>
+                    </TouchableOpacity>
+                 </View>
+                 <View style={styles.playRow}>
+                    <TouchableOpacity testID="action-double" disabled={!canD} onPress={() => act('D')} style={[styles.actionBtn, styles.btnDouble, { flex: 1, height: 50 }, !canD && styles.disabled]}>
+                      <Text style={[styles.actionBtnText, { fontSize: 13 }]}>DOUBLE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity testID="action-split" disabled={!canP} onPress={() => act('P')} style={[styles.actionBtn, styles.btnSplit, { flex: 1, height: 50 }, !canP && styles.disabled]}>
+                      <Text style={[styles.actionBtnText, { fontSize: 13 }]}>SPLIT</Text>
+                    </TouchableOpacity>
+                 </View>
+                 {canR && (
+                    <TouchableOpacity testID="action-surrender" onPress={() => act('R')} style={styles.surrenderBtn}>
+                      <Text style={styles.surrenderText}>SURRENDER</Text>
+                    </TouchableOpacity>
+                 )}
+              </View>
+           ) : phase === 'dealing' ? (
+              <View style={styles.controlsDealing}>
+                 <Text style={styles.dealingText}>DEALING...</Text>
+              </View>
+           ) : (
+              <View style={styles.controlsSettled}>
+                 <TouchableOpacity testID="next-hand" onPress={newHand} style={[styles.actionBtn, styles.btnPrimary]}>
+                   <Text style={styles.actionBtnText}>NEXT HAND</Text>
+                 </TouchableOpacity>
+              </View>
+           )}
+         </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#136B3C' },
-  tableLayout: { flex: 1, alignItems: 'center' },
+  page: { flex: 1, backgroundColor: '#000' },
 
-  dealerEquip: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 16, marginTop: 10, paddingHorizontal: 20, zIndex: 0 },
-  discardTray: { width: 50, height: 70, backgroundColor: 'transparent', borderRadius: 4, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
-  discardStack: { width: 42, height: 62, backgroundColor: '#FFF', borderRadius: 2, opacity: 0.1 },
-  chipRack: { width: 150, height: 32, backgroundColor: '#000', borderRadius: 16, flexDirection: 'row', padding: 4, gap: 3, borderWidth: 2, borderColor: '#222', marginTop: 18 },
-  rackStack: { flex: 1, borderRadius: 3 },
-  shoeOuter: { width: 50, height: 70, backgroundColor: '#111', borderRadius: 6, borderWidth: 2, borderColor: '#222', overflow: 'hidden' },
-  shoeStack: { flex: 1, backgroundColor: '#FFF', margin: 4, borderRadius: 2, opacity: 0.8 },
-  shoeWall: { position: 'absolute', right: -5, top: 0, bottom: 0, width: 10, backgroundColor: '#000', transform: [{ rotate: '15deg' }] },
+  tableShape: {
+    position: 'absolute',
+    top: Math.max(SCREEN_HEIGHT * 0.03, 30),
+    left: -(TABLE_W - SCREEN_WIDTH) / 2,
+    width: TABLE_W,
+    height: TABLE_H,
+    zIndex: 1,
+  },
+  tableWood: {
+    flex: 1,
+    borderTopLeftRadius: TABLE_W / 2,
+    borderTopRightRadius: TABLE_W / 2,
+    backgroundColor: '#381C0F',
+    paddingTop: 14,
+    borderWidth: 3,
+    borderColor: '#1C0D06',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.5, shadowRadius: 20,
+  },
+  tableLeather: {
+    flex: 1,
+    borderTopLeftRadius: TABLE_W / 2,
+    borderTopRightRadius: TABLE_W / 2,
+    backgroundColor: '#171717',
+    paddingTop: 20,
+    borderWidth: 2,
+    borderColor: '#0A0A0A',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.9, shadowRadius: 15,
+  },
+  felt: {
+    flex: 1,
+    borderTopLeftRadius: TABLE_W / 2,
+    borderTopRightRadius: TABLE_W / 2,
+    alignItems: 'center',
+    paddingHorizontal: (TABLE_W - SCREEN_WIDTH) / 2,
+    overflow: 'hidden'
+  },
+  spotlight: {
+    position: 'absolute',
+    top: -100,
+    width: SCREEN_WIDTH * 1.2,
+    height: SCREEN_HEIGHT * 0.8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: SCREEN_WIDTH,
+    transform: [{ scaleY: 0.5 }],
+    alignSelf: 'center',
+  },
 
-  dealerCards: { minHeight: 120, alignItems: 'center', marginTop: 16, zIndex: 10 },
+  dealerEquip: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-start', gap: 24, marginTop: 15, paddingHorizontal: 20, zIndex: 0 },
 
-  feltRules: { alignItems: 'center', marginVertical: 16, opacity: 0.5 },
-  markRulesBig: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#F4D03F', letterSpacing: 2, textAlign: 'center' },
-  markRulesSmall: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#FFF', letterSpacing: 1, marginTop: 6, textAlign: 'center' },
+  discardTray: {
+    width: 55, height: 75,
+    backgroundColor: 'rgba(10,10,10,0.6)',
+    borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center', justifyContent: 'center',
+    transform: [{ perspective: 300 }, { rotateY: '15deg' }, { rotateZ: '5deg' }],
+    shadowColor: '#000', shadowOffset: { width: -4, height: 6 }, shadowOpacity: 0.5, shadowRadius: 5
+  },
+  discardStack: { width: 45, height: 65, backgroundColor: '#FFF', borderRadius: 3, opacity: 0.15 },
+  discardGlass: { position: 'absolute', width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 6 },
 
-  centerFelt: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', zIndex: 20, paddingBottom: 16 },
-  betSpot: { width: 90, height: 90, borderRadius: 45, borderWidth: 3, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  placeBetText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: 'rgba(255,255,255,0.4)', letterSpacing: 1 },
+  chipRack: {
+    width: 160, height: 34,
+    borderRadius: 16, flexDirection: 'row', padding: 5, gap: 4,
+    borderWidth: 1, borderColor: '#333', marginTop: 15,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.6, shadowRadius: 6
+  },
+  rackStack: { flex: 1, borderRadius: 2 },
+
+  shoeOuter: {
+    width: 55, height: 75,
+    backgroundColor: '#0F0F0F', borderRadius: 6, borderWidth: 1, borderColor: '#2A2A2A',
+    overflow: 'hidden',
+    transform: [{ perspective: 300 }, { rotateY: '-15deg' }, { rotateZ: '-5deg' }],
+    shadowColor: '#000', shadowOffset: { width: 4, height: 6 }, shadowOpacity: 0.6, shadowRadius: 5
+  },
+  shoeStack: { flex: 1, backgroundColor: '#FFF', margin: 4, borderRadius: 3, opacity: 0.9 },
+  shoeWall: { position: 'absolute', right: -6, top: -5, bottom: -5, width: 14, transform: [{ rotate: '15deg' }] },
+
+  dealerCards: { minHeight: 125, alignItems: 'center', marginTop: 15, zIndex: 10 },
+
+  feltRules: { alignItems: 'center', marginVertical: 12, opacity: 0.45 },
+  markRulesBig: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#F4D03F', letterSpacing: 2.5, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: {width:0, height:1}, textShadowRadius: 2 },
+  markRulesSmall: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: '#FFF', letterSpacing: 1.5, marginTop: 4, textAlign: 'center' },
+
+  centerFelt: { flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%', zIndex: 20 },
+
+  betSpot: {
+    width: 80, height: 80, borderRadius: 40,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)', borderBottomColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    alignItems: 'center', justifyContent: 'center'
+  },
+  placeBetText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5 },
   betStackWrapper: { alignItems: 'center', justifyContent: 'center' },
-  betAmountBadge: { backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginTop: 8 },
-  betAmountText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#FFF' },
+  betSpotOuter: {
+     width: 80, height: 80, borderRadius: 40,
+     borderWidth: 2, borderColor: 'rgba(255,255,255,0.1)',
+     alignItems: 'center', justifyContent: 'center'
+  },
+  betAmountBadge: { backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, marginTop: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  betAmountText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#F4D03F' },
 
-  playerHandsZone: { flexDirection: 'row', justifyContent: 'center', gap: 12 },
+  playerHandsZone: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   handBlock: { alignItems: 'center' },
   cardRow: { flexDirection: 'row', justifyContent: 'center' },
 
   handHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8, height: 24 },
-  handTotalBadge: { backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  handTotalBadgeActive: { backgroundColor: '#F4D03F' },
+  handTotalBadge: { backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  handTotalBadgeActive: { backgroundColor: '#F4D03F', borderColor: '#F4D03F' },
   handTotalText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#FFF' },
-  handBetBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  handBetBadgeActive: { backgroundColor: 'rgba(244, 208, 63, 0.2)' },
+  handBetBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  handBetBadgeActive: { backgroundColor: 'rgba(244, 208, 63, 0.2)', borderColor: 'rgba(244, 208, 63, 0.4)' },
   handBetBadgeText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#FFF' },
 
   outcomeBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
@@ -575,42 +688,53 @@ const styles = StyleSheet.create({
   badgeLoss: { backgroundColor: '#DC3545' },
   outcomeText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: '#FFF', letterSpacing: 0.5 },
 
-  messageOverlay: { position: 'absolute', top: '42%', width: '100%', alignItems: 'center', zIndex: 100 },
-  messageBadge: { backgroundColor: 'rgba(0,0,0,0.9)', paddingHorizontal: 28, paddingVertical: 16, borderRadius: 16, borderWidth: 1, borderColor: '#333', shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 10, elevation: 10 },
-  messageText: { fontFamily: 'Inter_700Bold', fontSize: 24, color: '#FFF', letterSpacing: 1 },
+  messageOverlay: { position: 'absolute', top: '38%', width: '100%', alignItems: 'center', zIndex: 100 },
+  messageBadge: { paddingHorizontal: 32, paddingVertical: 18, borderRadius: 16, borderWidth: 1, borderColor: '#333', shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 15, elevation: 10, alignItems: 'center' },
+  messageText: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#FFF', letterSpacing: 1.5, textAlign: 'center' },
+  messageSubText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#28A745', marginTop: 4 },
 
-  rail: { backgroundColor: '#2A1610', borderTopWidth: 12, borderColor: '#1A0D09', shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.5, shadowRadius: 10, elevation: 15 },
-  railInner: { paddingHorizontal: 16, paddingTop: 12 },
-  railStatus: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  railBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  bankrollDisplay: { alignItems: 'center', backgroundColor: '#0A0503', paddingHorizontal: 28, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#000' },
-  bankrollLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: '#A0ABC0', letterSpacing: 1, marginBottom: 2 },
-  bankrollValue: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#F4D03F' },
-  railStats: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, minWidth: 44, height: 44, justifyContent: 'center' },
-  statsValue: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#A0ABC0' },
+  controlsOverlay: { position: 'absolute', bottom: 0, width: '100%', zIndex: 50, shadowColor: '#000', shadowOffset: { width: 0, height: -10 }, shadowOpacity: 0.8, shadowRadius: 20, elevation: 20 },
+  railBorder: { position: 'absolute', top: 0, width: '100%', height: 4, backgroundColor: 'rgba(255,255,255,0.05)', borderTopLeftRadius: 24, borderTopRightRadius: 24 },
+  railInner: { paddingHorizontal: 16, paddingTop: 10 },
+
+  railStatus: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  railBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  bankrollDisplay: { alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 32, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  bankrollLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: '#A0ABC0', letterSpacing: 1.5, marginBottom: 2 },
+  bankrollValue: { fontFamily: 'Inter_700Bold', fontSize: 24, color: '#F4D03F', textShadowColor: 'rgba(244,208,63,0.3)', textShadowOffset: {width:0, height:0}, textShadowRadius: 8 },
+  railStats: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, minWidth: 44, height: 44, justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  statsValue: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#A0ABC0' },
 
   controlsBetting: { },
-  betTools: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  chipTray: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 8 },
-  utilBtn: { backgroundColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  betTools: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  chipTray: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 8 },
+  utilBtn: { backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
   utilBtnText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFF', letterSpacing: 1 },
 
-  actionBtn: { backgroundColor: '#4361EE', height: 60, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  actionBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#FFF', letterSpacing: 1 },
+  actionBtn: { height: 52, borderRadius: 14, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 4, elevation: 6 },
+  actionBtnText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#FFF', letterSpacing: 1.5, textShadowColor: 'rgba(0,0,0,0.5)', textShadowOffset: {width:0,height:1}, textShadowRadius: 2 },
+
+  btnPrimary: { backgroundColor: '#1C39BB', borderTopWidth: 1, borderColor: '#3A57DF' },
+  btnHit: { backgroundColor: '#1E8449', borderTopWidth: 1, borderColor: '#2EAC62' },
+  btnStand: { backgroundColor: '#C0392B', borderTopWidth: 1, borderColor: '#E05344' },
+  btnDouble: { backgroundColor: '#2980B9', borderTopWidth: 1, borderColor: '#409EDD' },
+  btnSplit: { backgroundColor: '#8E44AD', borderTopWidth: 1, borderColor: '#A85CCB' },
+  btnInsure: { backgroundColor: '#D4AC0D', borderTopWidth: 1, borderColor: '#F1C40F' },
+  btnNeutral: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+
+  disabled: { opacity: 0.4 },
 
   controlsInsurance: { },
-  promptLabel: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#FFF', letterSpacing: 1, textAlign: 'center', marginBottom: 16 },
+  promptLabel: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#FFF', textAlign: 'center', marginBottom: 10, letterSpacing: 2 },
   insureRow: { flexDirection: 'row', gap: 12 },
 
   controlsPlaying: { },
-  playRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
-  surrenderBtn: { alignItems: 'center', paddingVertical: 8 },
-  surrenderText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#A0ABC0', letterSpacing: 1 },
+  playRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
+  surrenderBtn: { paddingVertical: 8, alignItems: 'center' },
+  surrenderText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#A0ABC0', letterSpacing: 1 },
 
-  controlsDealing: { minHeight: 60, justifyContent: 'center' },
-  dealingText: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#F4D03F', letterSpacing: 3, textAlign: 'center', marginVertical: 20 },
+  controlsDealing: { alignItems: 'center', justifyContent: 'center', height: 52 },
+  dealingText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: 'rgba(255,255,255,0.5)', letterSpacing: 2 },
 
   controlsSettled: { },
-
-  disabled: { opacity: 0.35 }
 });
