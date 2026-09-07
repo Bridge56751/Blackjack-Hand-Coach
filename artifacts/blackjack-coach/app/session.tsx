@@ -320,7 +320,7 @@ export default function SessionScreen() {
           <Text style={styles.headerExitText}>END & GRADE</Text>
           <Text style={styles.headerExitSub}>SESSION</Text>
         </TouchableOpacity>
-        <View style={styles.headerBrand}>
+        <View style={[styles.headerBrand, { top: Math.max(insets.top, 10) + 10 }]}>
           <Text style={styles.headerBrandMain}>BLACKJACK</Text>
           <Text style={styles.headerBrandSub}>COACH · {decksRemaining} DECKS · {rules.decks * 52 - shoe.length} USED</Text>
         </View>
