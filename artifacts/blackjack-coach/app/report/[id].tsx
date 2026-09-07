@@ -7,6 +7,7 @@ import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import { useSubscription } from '@/lib/subscription';
 
 const formatCurrency = (value: number) => {
   if (Math.abs(value) >= 1_000_000) {
@@ -18,6 +19,7 @@ const formatCurrency = (value: number) => {
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { history } = useCoach();
+  const { isHighRoller, openPaywall } = useSubscription();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -48,7 +50,7 @@ export default function ReportScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <FlatList
-        data={mistakes}
+        data={isHighRoller ? mistakes : []}
         keyExtractor={item => item.id}
         contentContainerStyle={[
           styles.listContent, 
@@ -91,7 +93,27 @@ export default function ReportScreen() {
             />
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
-            {mistakes.length === 0 && (
+            {!isHighRoller ? (
+              <TouchableOpacity
+                testID="report-high-roller-lock"
+                onPress={() => openPaywall('Detailed Hand Review')}
+                style={[styles.lockedReview, { backgroundColor: colors.card, borderColor: colors.primary }]}
+              >
+                <View style={[styles.lockedReviewIcon, { backgroundColor: 'rgba(212,175,55,0.14)' }]}>
+                  <Feather name="lock" size={22} color={colors.primary} />
+                </View>
+                <Text style={[styles.lockedReviewEyebrow, { color: colors.primary }]}>HIGH ROLLER REVIEW</Text>
+                <Text style={[styles.lockedReviewTitle, { color: colors.foreground }]}>
+                  See every hand you should have played differently
+                </Text>
+                <Text style={[styles.lockedReviewText, { color: colors.mutedForeground }]}>
+                  Unlock your cards, the correct move, count context, and strategy explanation for each mistake.
+                </Text>
+                <View style={[styles.lockedReviewButton, { backgroundColor: colors.primary }]}>
+                  <Text style={[styles.lockedReviewButtonText, { color: colors.primaryForeground }]}>UNLOCK HAND REVIEW</Text>
+                </View>
+              </TouchableOpacity>
+            ) : mistakes.length === 0 && (
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="award" size={40} color={colors.primary} style={{ marginBottom: 12 }} />
                 <Text style={[styles.emptyText, { color: colors.foreground }]}>Perfect Session!</Text>
@@ -288,6 +310,13 @@ const styles = StyleSheet.create({
   chartStatLabel: { fontSize: 9, fontFamily: 'Inter_700Bold', letterSpacing: 0.8 },
   chartStatValue: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginTop: 2 },
   sectionTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold', marginBottom: 16 },
+  lockedReview: { padding: 22, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
+  lockedReviewIcon: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  lockedReviewEyebrow: { fontSize: 9, fontFamily: 'Inter_700Bold', letterSpacing: 1.4 },
+  lockedReviewTitle: { fontSize: 18, lineHeight: 23, fontFamily: 'Inter_700Bold', textAlign: 'center', marginTop: 7 },
+  lockedReviewText: { fontSize: 12, lineHeight: 18, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: 8 },
+  lockedReviewButton: { minHeight: 44, borderRadius: 22, paddingHorizontal: 20, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  lockedReviewButtonText: { fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
   emptyState: { padding: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
   emptySub: { fontSize: 14, fontFamily: 'Inter_400Regular' },

@@ -7,6 +7,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomNav } from '@/components/BottomNav';
 import { rulesSummary } from '@/lib/rules';
+import { useSubscription } from '@/lib/subscription';
 
 const getGradeColor = (grade: string) => {
   if (grade.startsWith('A')) return '#D4AF37';
@@ -52,6 +53,7 @@ const SessionCard = ({ item, router, colors }: any) => {
 
 export default function HistoryScreen() {
   const { history } = useCoach();
+  const { isHighRoller, openPaywall } = useSubscription();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -81,9 +83,12 @@ export default function HistoryScreen() {
           <Pressable
             testID="history-count-filter"
             style={[styles.filterBtn, filter === 'hilo-index' && { backgroundColor: colors.card }]}
-            onPress={() => setFilter('hilo-index')}
+            onPress={() => isHighRoller ? setFilter('hilo-index') : openPaywall('Card Counting History')}
           >
-            <Text style={[styles.filterText, filter === 'hilo-index' && { color: colors.foreground }]}>Card Counting</Text>
+            <View style={styles.countFilterLabel}>
+              {!isHighRoller && <Feather name="lock" size={11} color={colors.primary} />}
+              <Text style={[styles.filterText, filter === 'hilo-index' && { color: colors.foreground }]}>Card Counting</Text>
+            </View>
           </Pressable>
         </View>
       </View>
@@ -155,6 +160,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: 'rgba(255,255,255,0.5)',
   },
+  countFilterLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   listContent: {
     padding: 20,
   },

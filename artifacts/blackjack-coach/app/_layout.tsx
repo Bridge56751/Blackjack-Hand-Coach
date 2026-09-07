@@ -15,8 +15,10 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { CoachProvider } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
+import { initializeRevenueCat, SubscriptionProvider } from '@/lib/subscription';
 
 SplashScreen.preventAutoHideAsync();
+initializeRevenueCat();
 
 const queryClient = new QueryClient();
 
@@ -63,9 +65,11 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <GestureHandlerRootView>
             <KeyboardProvider>
-              <CoachProvider>
-                <RootLayoutNav />
-              </CoachProvider>
+              <SubscriptionProvider>
+                <CoachProvider>
+                  <RootLayoutNav />
+                </CoachProvider>
+              </SubscriptionProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </QueryClientProvider>

@@ -1,10 +1,12 @@
 import React from 'react';
-import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
 import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
 import { useColors } from '@/hooks/useColors';
 import { BottomNav } from '@/components/BottomNav';
+import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useSubscription } from '@/lib/subscription';
 
 const deckOptions: TableRules['decks'][] = [1, 2, 4, 6, 8];
 
@@ -19,10 +21,15 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { preferredRules, preferredRulesReady, updatePreferredRules } = useCoach();
+  const { isHighRoller, isLoading, offering, openPaywall, restore, isRestoring, error } = useSubscription();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const webBottomInset = Platform.OS === 'web' ? 34 : 0;
 
   const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) => {
+    if (!isHighRoller && (key === 'cardCountingEnabled' || (key === 'accuracyMode' && value === 'hilo-index'))) {
+      openPaywall(key === 'accuracyMode' ? 'Hi-Lo Index Play' : 'Live Card Counting');
+      return;
+    }
     updatePreferredRules(current => {
       const next = { ...current, name: 'Custom Table', [key]: value };
       if (key === 'decks' && (value === 1 || value === 2) && next.accuracyMode === 'hilo-index') {
@@ -62,6 +69,36 @@ export default function SettingsScreen() {
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
           Configure your default table rules and preferences. These will be used for new table setups.
         </Text>
+
+        <View testID="high-roller-membership" style={[styles.membershipCard, { borderColor: isHighRoller ? colors.primary : colors.border }]}>
+          <View style={styles.membershipHeader}>
+            <View style={[styles.membershipIcon, { backgroundColor: isHighRoller ? colors.primary : 'rgba(212,175,55,0.12)' }]}>
+              <MaterialCommunityIcons name="crown" size={22} color={isHighRoller ? colors.primaryForeground : colors.primary} />
+            </View>
+            <View style={styles.membershipCopy}>
+              <Text style={[styles.membershipEyebrow, { color: colors.primary }]}>HIGH ROLLER</Text>
+              <Text style={[styles.membershipTitle, { color: colors.foreground }]}>{isHighRoller ? 'Your table is fully unlocked' : 'Unlock advanced training'}</Text>
+            </View>
+            {isLoading && <ActivityIndicator size="small" color={colors.primary} />}
+          </View>
+          <Text style={[styles.membershipDetail, { color: colors.mutedForeground }]}>
+            {isHighRoller
+              ? 'Live count, Hi-Lo index play, detailed hand reviews, and bankroll top-ups are active.'
+              : offering?.availablePackages.length
+                ? `Plans from ${offering.availablePackages.reduce((least, pkg) => pkg.product.price < least.product.price ? pkg : least).product.priceString}.`
+                : 'See available monthly and yearly membership plans.'}
+          </Text>
+          {!isHighRoller && (
+            <TouchableOpacity testID="settings-open-high-roller" onPress={() => openPaywall('Dealer Settings')} style={[styles.membershipButton, { backgroundColor: colors.primary }]}>
+              <Text style={[styles.membershipButtonText, { color: colors.primaryForeground }]}>VIEW HIGH ROLLER</Text>
+              <Feather name="arrow-right" size={15} color={colors.primaryForeground} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity testID="settings-restore-purchases" disabled={isRestoring} onPress={() => void restore()} style={styles.restoreButton}>
+            {isRestoring ? <ActivityIndicator size="small" color={colors.primary} /> : <Text style={[styles.restoreButtonText, { color: colors.primary }]}>RESTORE PURCHASES</Text>}
+          </TouchableOpacity>
+          {!!error && <Text style={[styles.membershipError, { color: colors.destructive }]}>{error}</Text>}
+        </View>
 
         <SectionLead label="TABLE PRESETS" title="Start with a casino standard" colors={colors} />
         <View style={styles.presetList}>
@@ -144,6 +181,7 @@ export default function SettingsScreen() {
             onPress={() => update('cardCountingEnabled', !preferredRules.cardCountingEnabled)}
             testID="settings-card-counting-toggle"
             colors={colors}
+            locked={!isHighRoller}
             last
           />
         </RuleSection>
@@ -178,6 +216,7 @@ export default function SettingsScreen() {
             colors={colors}
             disabled={preferredRules.decks === 1 || preferredRules.decks === 2}
             disabledDetail="Hi-Lo index mode requires a 4, 6, or 8-deck shoe."
+            locked={!isHighRoller}
             last
           />
         </RuleSection>
@@ -200,7 +239,7 @@ function DeckChip({ deck, selected, onPress, colors }: { deck: TableRules['decks
   return <TouchableOpacity testID={`settings-decks-${deck}`} onPress={onPress} style={[styles.deckChip, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : colors.card }]}><Text style={[styles.deckValue, { color: selected ? colors.primaryForeground : colors.foreground }]}>{deck}</Text><Text style={[styles.deckUnit, { color: selected ? colors.primaryForeground : colors.mutedForeground }]}>{deck === 1 ? 'DECK' : 'DECKS'}</Text></TouchableOpacity>;
 }
 
-function RuleChoice({ label, detail, selected, onPress, testID, colors, disabled = false, disabledDetail, last = false }: { label: string; detail: string; selected: boolean; onPress: () => void; testID: string; colors: any; disabled?: boolean; disabledDetail?: string; last?: boolean }) {
+function RuleChoice({ label, detail, selected, onPress, testID, colors, disabled = false, disabledDetail, locked = false, last = false }: { label: string; detail: string; selected: boolean; onPress: () => void; testID: string; colors: any; disabled?: boolean; disabledDetail?: string; locked?: boolean; last?: boolean }) {
   return (
     <TouchableOpacity
       testID={testID}
@@ -210,11 +249,13 @@ function RuleChoice({ label, detail, selected, onPress, testID, colors, disabled
     >
       <View style={styles.choiceCopy}>
         <Text style={[styles.choiceLabel, { color: colors.foreground }]}>{label}</Text>
-        <Text style={[styles.choiceDetail, { color: colors.mutedForeground }]}>{disabled && disabledDetail ? disabledDetail : detail}</Text>
+        <Text style={[styles.choiceDetail, { color: colors.mutedForeground }]}>{locked ? `High Roller · ${detail}` : disabled && disabledDetail ? disabledDetail : detail}</Text>
       </View>
-      <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>
-        {selected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
-      </View>
+      {locked ? <Feather name="lock" size={17} color={colors.primary} /> : (
+        <View style={[styles.radio, { borderColor: selected ? colors.primary : colors.mutedForeground }]}>
+          {selected && <View style={[styles.radioDot, { backgroundColor: colors.primary }]} />}
+        </View>
+      )}
     </TouchableOpacity>
   );
 }
@@ -225,6 +266,18 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   title: { fontFamily: 'Inter_700Bold', fontSize: 31, letterSpacing: -0.7 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, lineHeight: 22 },
+  membershipCard: { marginTop: 22, padding: 17, borderRadius: 17, borderWidth: 1, backgroundColor: 'rgba(0,0,0,0.16)' },
+  membershipHeader: { flexDirection: 'row', alignItems: 'center' },
+  membershipIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginRight: 11 },
+  membershipCopy: { flex: 1 },
+  membershipEyebrow: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 1.4, marginBottom: 3 },
+  membershipTitle: { fontFamily: 'Inter_700Bold', fontSize: 16 },
+  membershipDetail: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18, marginTop: 12 },
+  membershipButton: { minHeight: 46, borderRadius: 23, marginTop: 14, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 9 },
+  membershipButtonText: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 1 },
+  restoreButton: { minHeight: 38, alignSelf: 'center', paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center', marginTop: 5 },
+  restoreButtonText: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1 },
+  membershipError: { fontFamily: 'Inter_500Medium', fontSize: 10, lineHeight: 14, textAlign: 'center' },
   sectionLead: { marginTop: 30, marginBottom: 13 },
   sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.45, marginBottom: 5 },
   sectionTitle: { fontFamily: 'Inter_700Bold', fontSize: 20, letterSpacing: -0.25 },

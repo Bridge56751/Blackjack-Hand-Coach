@@ -13,6 +13,8 @@ import { CardView } from '@/components/CardView';
 import { Chip, ChipStack } from '@/components/Chip';
 import { estimatedPlayerEdge, hiLoValue, trueCount } from '@/lib/counting';
 import { estimateHitStandOdds } from '@/lib/odds';
+import { useSubscription } from '@/lib/subscription';
+import { normalizeTableRules } from '@/lib/rules';
 
 type Phase = 'betting' | 'dealing' | 'insurance' | 'playing' | 'settled';
 const chips = [5, 25, 100, 250, 500];
@@ -26,11 +28,15 @@ const replaySound = (player: ReturnType<typeof useAudioPlayer>) => {
 
 export default function SessionScreen() {
   const { activeSession, endSession, recordHand, addBankroll } = useCoach();
+  const { isHighRoller, openPaywall } = useSubscription();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const winSound = useAudioPlayer(require('../assets/sounds/win-chime.mp3'));
   const lossSound = useAudioPlayer(require('../assets/sounds/loss-tone.mp3'));
-  const rules = activeSession?.rules;
+  const storedRules = activeSession?.rules;
+  const rules = storedRules
+    ? normalizeTableRules(isHighRoller ? storedRules : { ...storedRules, cardCountingEnabled: false, accuracyMode: 'basic' })
+    : undefined;
   const [bankroll, setBankroll] = useState(1000);
   const [bets, setBets] = useState<number[]>([0, 0, 0]);
   const [lastBets, setLastBets] = useState<number[]>([25, 0, 0]);
@@ -81,11 +87,13 @@ export default function SessionScreen() {
       ...recommendationInput,
       tableRules: { ...rules, accuracyMode: 'basic' },
     });
-    const countRec = getRecommendation({
-      ...recommendationInput,
-      tableRules: { ...rules, accuracyMode: 'hilo-index' },
-    });
-    const rec = rules.accuracyMode === 'hilo-index' ? countRec : basicRec;
+    const countRec = isHighRoller
+      ? getRecommendation({
+          ...recommendationInput,
+          tableRules: { ...rules, accuracyMode: 'hilo-index' },
+        })
+      : basicRec;
+    const rec = isHighRoller && rules.accuracyMode === 'hilo-index' ? countRec : basicRec;
 
     decisionsRef.current = [...decisionsRef.current, {
       id: uid(),
@@ -98,14 +106,14 @@ export default function SessionScreen() {
       correct: rec.action,
       isCorrect: rec.action === action,
       basicAction: basicRec.action,
-      countAdjustedAction: countRec.action,
+      countAdjustedAction: isHighRoller ? countRec.action : undefined,
       gradingMode: rules.accuracyMode ?? 'basic',
-      runningCount: rec.runningCount,
-      trueCount: rec.trueCount,
-      indexApplied: rec.indexApplied,
-      thresholdLabel: rec.thresholdLabel,
-      explanation: rec.explanation,
-      profileId: rec.profileId,
+      runningCount: isHighRoller ? rec.runningCount : undefined,
+      trueCount: isHighRoller ? rec.trueCount : undefined,
+      indexApplied: isHighRoller ? rec.indexApplied : undefined,
+      thresholdLabel: isHighRoller ? rec.thresholdLabel : undefined,
+      explanation: isHighRoller ? rec.explanation : undefined,
+      profileId: isHighRoller ? rec.profileId : undefined,
     }];
   };
   const handsAtSpot = (hand: GameHand, all = hands) => all.filter(item => item.spot === hand.spot).length;
@@ -271,6 +279,11 @@ export default function SessionScreen() {
   const newHand = () => { setDealerTurn(false); setDealerHoleRevealed(false); setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
   const repeatBet = () => { void deal(lastBets); };
   const addPracticeChips = (amount: number) => {
+    if (!isHighRoller) {
+      setTopUpOpen(false);
+      openPaywall('Mid-session Bankroll');
+      return;
+    }
     if (!addBankroll(amount)) return;
     setBankroll(value => value + amount);
     setTopUpOpen(false);
@@ -327,13 +340,13 @@ export default function SessionScreen() {
         <TouchableOpacity
           testID="add-bankroll"
           accessibilityLabel="Add practice chips"
-          onPress={() => setTopUpOpen(true)}
+          onPress={() => isHighRoller ? setTopUpOpen(true) : openPaywall('Mid-session Bankroll')}
           disabled={phase === 'dealing'}
           style={[styles.headerBankroll, phase === 'dealing' && styles.headerBankrollDisabled]}
         >
           <Text style={styles.headerBankrollLabel}>BANKROLL</Text>
           <Text style={styles.headerBankrollValue}>${bankroll.toLocaleString()}</Text>
-          <Text style={styles.headerBankrollAdd}>{phase === 'dealing' ? 'DEALING' : 'ADD CHIPS'}</Text>
+          <Text style={styles.headerBankrollAdd}>{phase === 'dealing' ? 'DEALING' : isHighRoller ? 'ADD CHIPS' : 'HIGH ROLLER · ADD'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -395,14 +408,14 @@ export default function SessionScreen() {
             <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
           </View>
         ) : (
-          <View testID="count-edge-locked" style={[styles.countPanel, styles.countPanelLocked]}>
+          <TouchableOpacity testID="count-edge-locked" onPress={() => openPaywall('Live House Edge')} style={[styles.countPanel, styles.countPanelLocked]}>
             <View style={styles.edgeLockedTitle}>
               <Feather name="lock" size={9} color="rgba(217,197,143,0.7)" />
               <Text style={styles.countEyebrow}>HOUSE EDGE</Text>
             </View>
             <Text style={styles.edgeLockedText}>CARD COUNTING</Text>
             <Text style={styles.edgeNote}>TABLES ONLY</Text>
-          </View>
+          </TouchableOpacity>
         )}
         <View style={[styles.dealerArea, isCompactTable && styles.dealerAreaCompact]}>
           <View style={[styles.cardRow, styles.dealerCardRow]}>

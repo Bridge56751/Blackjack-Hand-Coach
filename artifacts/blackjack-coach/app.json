@@ -8,9 +8,12 @@
     "scheme": "blackjack-coach",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.blackjackcoach.app"
     },
-    "android": {},
+    "android": {
+      "package": "com.blackjackcoach.app"
+    },
     "web": {
       "favicon": "./assets/images/icon.png"
     },

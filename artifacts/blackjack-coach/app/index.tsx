@@ -16,6 +16,7 @@ import Animated, {
 import { getOnboardingRecord } from '@/lib/onboarding';
 import { BottomNav } from '@/components/BottomNav';
 import { normalizeTableRules } from '@/lib/rules';
+import { useSubscription } from '@/lib/subscription';
 
 const AnimatedPressable = ({ onPress, style, children, testID }: any) => {
   const scale = useSharedValue(1);
@@ -98,6 +99,7 @@ function HeroCards() {
 
 export default function DashboardScreen() {
   const { history, preferredRules, preferredRulesReady, startSession, updatePreferredRules } = useCoach();
+  const { isHighRoller, openPaywall } = useSubscription();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -106,7 +108,7 @@ export default function DashboardScreen() {
   const [seatPrompt, setSeatPrompt] = useState<'coach' | 'count' | null>(null);
   const [pendingCoachEnabled, setPendingCoachEnabled] = useState(true);
   const supportsHiLo = preferredRules.decks === 4 || preferredRules.decks === 6 || preferredRules.decks === 8;
-  const countAdjustedAccuracy = supportsHiLo
+  const countAdjustedAccuracy = isHighRoller && supportsHiLo
     && (countAccuracyOverride ?? preferredRules.accuracyMode === 'hilo-index');
 
   useEffect(() => {
@@ -132,6 +134,7 @@ export default function DashboardScreen() {
       startSession(normalizeTableRules({
         ...preferredRules,
         accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
+        cardCountingEnabled: isHighRoller && preferredRules.cardCountingEnabled === true,
       }));
       router.push('/session');
       return;
@@ -144,14 +147,14 @@ export default function DashboardScreen() {
       ...preferredRules,
       accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
       coachEnabled,
-      cardCountingEnabled: showCount,
+      cardCountingEnabled: isHighRoller && showCount,
     }));
     setSeatPrompt(null);
     router.push('/session');
   };
 
   const chooseCoach = (coachEnabled: boolean) => {
-    if (countAdjustedAccuracy) {
+    if (isHighRoller && countAdjustedAccuracy) {
       setPendingCoachEnabled(coachEnabled);
       setSeatPrompt('count');
       return;
@@ -204,6 +207,10 @@ export default function DashboardScreen() {
             accessibilityLabel="Grade play using card counting"
             onPress={() => {
               if (!supportsHiLo) return;
+              if (!isHighRoller) {
+                openPaywall('Card Counting');
+                return;
+              }
               setCountAccuracyOverride(!countAdjustedAccuracy);
               if (Platform.OS !== 'web') {
                 Haptics.selectionAsync();
@@ -222,12 +229,18 @@ export default function DashboardScreen() {
                     ? 'Hi-Lo grading requires a 4, 6, or 8-deck shoe'
                     : countAdjustedAccuracy
                       ? 'Accuracy uses Hi-Lo index plays'
-                      : 'Accuracy uses basic strategy'}
+                      : isHighRoller
+                        ? 'Accuracy uses basic strategy'
+                        : 'High Roller unlocks count-adjusted grading'}
                 </Text>
               </View>
-              <View style={[styles.toggleTrack, countAdjustedAccuracy && styles.toggleTrackActive]}>
-                <View style={[styles.toggleThumb, countAdjustedAccuracy && styles.toggleThumbActive]} />
-              </View>
+              {isHighRoller ? (
+                <View style={[styles.toggleTrack, countAdjustedAccuracy && styles.toggleTrackActive]}>
+                  <View style={[styles.toggleThumb, countAdjustedAccuracy && styles.toggleThumbActive]} />
+                </View>
+              ) : (
+                <Feather name="lock" size={17} color="#D4AF37" />
+              )}
             </View>
             {countAdjustedAccuracy && (
               <Text style={styles.countAccuracyDisclaimer}>
