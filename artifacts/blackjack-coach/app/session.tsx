@@ -4,7 +4,6 @@ import { Feather, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icon
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
-import Animated, { FadeInUp } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCoach, Decision } from '@/lib/context';
 import { getBasicStrategy, getActionName, Action, getRecommendation } from '@/lib/strategy';
@@ -390,7 +389,7 @@ export default function SessionScreen() {
 
         <View style={styles.spotsArea}>
            {phase === 'betting' ? (
-              <Animated.View entering={FadeInUp.duration(280)} style={[styles.bettingArc, isCompactTable && styles.bettingArcCompact, singleHandMode && styles.bettingArcSingle]}>
+              <View style={[styles.bettingArc, isCompactTable && styles.bettingArcCompact, singleHandMode && styles.bettingArcSingle]}>
                  <View pointerEvents="none" style={[styles.arcInlay, singleHandMode && styles.arcInlaySingle]}>
                    <View style={[styles.arcCaptionPlate, singleHandMode && styles.arcCaptionPlateSingle]}>
                      <Text style={styles.arcCaption}>{singleHandMode ? 'PLACE YOUR WAGER' : 'SELECT A POSITION · PLACE YOUR WAGER'}</Text>
@@ -406,15 +405,18 @@ export default function SessionScreen() {
                            {bet ? <ChipStack amount={bet} size={centered ? 44 : 40} /> : <View style={styles.wellMarker}><Text style={styles.wellNumber}>{i + 1}</Text></View>}
                          </View>
                        </View>
-                       {bet > 0 && <View style={styles.seatReadout}>
+                        <View
+                          pointerEvents="none"
+                          style={[styles.seatReadout, bet <= 0 && styles.seatReadoutHidden]}
+                        >
                          <View style={styles.seatPip} />
-                         <Text style={styles.seatText}>${bet}</Text>
+                          <Text style={styles.seatText}>{bet > 0 ? `$${bet}` : '$0'}</Text>
                          <View style={styles.seatPip} />
-                       </View>}
+                        </View>
                      </TouchableOpacity>
                    )})}
                  </View>
-              </Animated.View>
+              </View>
           ) : (
              <View style={styles.handsArea}>
                 {displayHands.map((hand, index) => {
@@ -922,6 +924,7 @@ const styles = StyleSheet.create({
    wellMarker: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
    wellNumber: { fontFamily: 'Inter_700Bold', fontSize: 9, color: 'rgba(235,209,137,0.62)' },
    seatReadout: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 7, height: 16 },
+   seatReadoutHidden: { opacity: 0 },
    seatPip: { width: 3, height: 3, borderRadius: 2, backgroundColor: 'rgba(235,209,137,0.55)' },
    seatText: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: 0.7, color: '#ebd189', textShadowColor: 'rgba(0,0,0,0.75)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2 },
   handsArea: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 12 },
