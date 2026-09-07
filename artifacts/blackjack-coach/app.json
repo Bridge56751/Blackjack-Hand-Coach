@@ -9,10 +9,10 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.blackjackcoach.app"
+      "bundleIdentifier": "com.howtoplayblackjack.app"
     },
     "android": {
-      "package": "com.blackjackcoach.app"
+      "package": "com.howtoplayblackjack.app"
     },
     "web": {
       "favicon": "./assets/images/icon.png"

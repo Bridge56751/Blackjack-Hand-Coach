@@ -408,7 +408,7 @@ export default function SessionScreen() {
             <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
           </View>
         ) : (
-          <TouchableOpacity testID="count-edge-locked" onPress={() => openPaywall('Live House Edge')} style={[styles.countPanel, styles.countPanelLocked]}>
+          <TouchableOpacity testID="count-edge-locked" onPress={() => isHighRoller ? router.push('/settings') : openPaywall('Live House Edge')} style={[styles.countPanel, styles.countPanelLocked]}>
             <View style={styles.edgeLockedTitle}>
               <Feather name="lock" size={9} color="rgba(217,197,143,0.7)" />
               <Text style={styles.countEyebrow}>HOUSE EDGE</Text>

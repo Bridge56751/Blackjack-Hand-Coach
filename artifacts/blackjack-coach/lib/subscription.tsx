@@ -10,7 +10,7 @@ import Purchases, {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { HighRollerPaywall } from '@/components/HighRollerPaywall';
 
-export const HIGH_ROLLER_ENTITLEMENT = 'high_roller';
+export const HIGH_ROLLER_ENTITLEMENT = 'com_howtoplayblackjack_app_High_Roller';
 
 const testApiKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const iosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
