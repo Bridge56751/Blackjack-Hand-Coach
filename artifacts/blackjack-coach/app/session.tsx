@@ -381,7 +381,7 @@ export default function SessionScreen() {
             )}
           </View>
         )}
-        {rules.cardCountingEnabled && (
+        {rules.cardCountingEnabled ? (
           <View testID="count-panel" style={styles.countPanel}>
             <Text style={styles.countEyebrow}>HI-LO · LIVE</Text>
             <View style={styles.countRow}>
@@ -393,6 +393,15 @@ export default function SessionScreen() {
               {playerEdge >= 0 ? 'PLAYER' : 'HOUSE'} {Math.abs(playerEdge).toFixed(2)}%
             </Text>
             <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
+          </View>
+        ) : (
+          <View testID="count-edge-locked" style={[styles.countPanel, styles.countPanelLocked]}>
+            <View style={styles.edgeLockedTitle}>
+              <Feather name="lock" size={9} color="rgba(217,197,143,0.7)" />
+              <Text style={styles.countEyebrow}>HOUSE EDGE</Text>
+            </View>
+            <Text style={styles.edgeLockedText}>CARD COUNTING</Text>
+            <Text style={styles.edgeNote}>TABLES ONLY</Text>
           </View>
         )}
         <View style={[styles.dealerArea, isCompactTable && styles.dealerAreaCompact]}>
@@ -908,6 +917,9 @@ const styles = StyleSheet.create({
     borderRadius: 8, borderWidth: 1, borderColor: 'rgba(217,197,143,0.42)',
     backgroundColor: 'rgba(6,31,14,0.88)', paddingHorizontal: 8, paddingVertical: 6,
   },
+  countPanelLocked: { minHeight: 48, alignItems: 'center', justifyContent: 'center', opacity: 0.78 },
+  edgeLockedTitle: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  edgeLockedText: { fontFamily: 'Inter_700Bold', fontSize: 8, letterSpacing: 0.7, color: 'rgba(243,240,232,0.62)', marginTop: 5 },
   countEyebrow: { fontFamily: 'Inter_700Bold', fontSize: 6, letterSpacing: 1.1, color: '#d9c58f', marginBottom: 5 },
   countRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   countDivider: { width: 1, height: 23, backgroundColor: 'rgba(217,197,143,0.2)' },

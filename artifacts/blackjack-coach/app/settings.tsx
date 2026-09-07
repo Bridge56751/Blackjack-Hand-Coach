@@ -37,6 +37,7 @@ export default function SettingsScreen() {
       ...preset,
       accuracyMode: current.accuracyMode,
       cardCountingEnabled: current.cardCountingEnabled,
+      coachEnabled: current.coachEnabled,
     }));
   };
 
@@ -141,6 +142,18 @@ export default function SettingsScreen() {
             selected={preferredRules.cardCountingEnabled === true}
             onPress={() => update('cardCountingEnabled', !preferredRules.cardCountingEnabled)}
             testID="settings-card-counting-toggle"
+            colors={colors}
+            last
+          />
+        </RuleSection>
+
+        <RuleSection title="Hints" description="Choose whether Blackjack Coach assists during play." colors={colors}>
+          <RuleChoice
+            label="Show strategy hints"
+            detail="Displays the recommended play and estimated win chance during each hand."
+            selected={preferredRules.coachEnabled !== false}
+            onPress={() => update('coachEnabled', preferredRules.coachEnabled === false)}
+            testID="settings-hints-toggle"
             colors={colors}
             last
           />

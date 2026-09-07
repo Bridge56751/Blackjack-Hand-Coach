@@ -136,7 +136,7 @@ export default function DashboardScreen() {
       ...preferredRules,
       accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
       coachEnabled,
-      cardCountingEnabled: countAdjustedAccuracy && showCount,
+      cardCountingEnabled: showCount,
     }));
     setSeatPrompt(null);
     router.push('/session');
@@ -148,7 +148,7 @@ export default function DashboardScreen() {
       setSeatPrompt('count');
       return;
     }
-    beginSession(coachEnabled, false);
+    beginSession(coachEnabled, preferredRules.cardCountingEnabled === true);
   };
 
   const selectedMode = countAdjustedAccuracy ? 'hilo-index' : 'basic';
