@@ -30,7 +30,7 @@ function RootLayoutNav() {
       headerBackTitle: 'Back',
       contentStyle: { backgroundColor: colors.background },
     }}>
-      <Stack.Screen name="index" options={{ title: 'Blackjack Coach' }} />
+      <Stack.Screen name="index" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="history" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="settings" options={{ headerShown: false, animation: 'fade' }} />
       <Stack.Screen name="onboarding" options={{ headerShown: false, animation: 'fade' }} />

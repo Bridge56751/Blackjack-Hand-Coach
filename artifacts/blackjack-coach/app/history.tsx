@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, Platform, Pressable } from 'react-native';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomNav } from '@/components/BottomNav';
@@ -67,8 +67,6 @@ export default function HistoryScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 18) + webTopInset, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
         <Text style={[styles.title, { color: colors.foreground }]}>Table History</Text>
         

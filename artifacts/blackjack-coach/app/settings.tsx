@@ -1,7 +1,6 @@
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
 import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
@@ -48,8 +47,6 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.page, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
       <ScrollView
         contentContainerStyle={[
           styles.content,

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Platform, Pressable, Modal } from 'react-native';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
-import { Stack, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -163,8 +163,6 @@ export default function DashboardScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <Stack.Screen options={{ headerShown: false }} />
-      
       {/* Background Decor */}
       <View style={styles.tableRing1} pointerEvents="none" />
       <View style={styles.tableRing2} pointerEvents="none" />
