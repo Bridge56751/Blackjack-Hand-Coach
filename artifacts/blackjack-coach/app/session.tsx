@@ -432,7 +432,7 @@ export default function SessionScreen() {
                              <Text style={styles.scoreText}>{handTotal(hand.cards).total}</Text>
                            </View>
                            <View style={{ height: 6 }} />
-                            <Chip amount={hand.bet} size={isCompactTable ? 44 : 48} />
+                             <ChipStack amount={hand.bet} size={isCompactTable ? 44 : 48} />
                            <Text style={styles.handBetValue}>${hand.bet}</Text>
                            {phase === 'settled' && <Text style={styles.outcomeText}>{hand.outcome}</Text>}
                         </View>
