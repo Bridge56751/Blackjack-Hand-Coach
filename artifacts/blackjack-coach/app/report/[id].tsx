@@ -8,6 +8,13 @@ import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
+const formatCurrency = (value: number) => {
+  if (Math.abs(value) >= 1_000_000) {
+    return `$${Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: 2 }).format(value)}`;
+  }
+  return `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+};
+
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { history } = useCoach();
@@ -50,16 +57,27 @@ export default function ReportScreen() {
         ListHeaderComponent={
           <>
             <View style={[styles.heroCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <View style={styles.gradeCircle}>
-                <Text style={[styles.gradeTextBig, { color: colors.primary }]}>{stats.grade}</Text>
+              <View style={styles.heroTop}>
+                <View style={styles.gradeCircle}>
+                  <Text style={[styles.gradeTextBig, { color: colors.primary }]}>{stats.grade}</Text>
+                </View>
+                <View style={styles.heroSummary}>
+                  <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}%</Text>
+                  <Text style={[styles.accuracyLabel, { color: colors.mutedForeground }]}>STRATEGY ACCURACY</Text>
+                  <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} of {stats.total} decisions correct</Text>
+                  {isIndex && (
+                    <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Basic Strategy match: {Math.round(stats.bookAccuracy * 100)}%</Text>
+                  )}
+                </View>
               </View>
-              <Text style={[styles.accText, { color: colors.foreground }]}>{Math.round(stats.accuracy * 100)}% Accuracy</Text>
-              <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{stats.correct} / {stats.total} correct decisions</Text>
-              {isIndex && (
-                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Basic Strategy match: {Math.round(stats.bookAccuracy * 100)}%</Text>
-              )}
-               {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${bankrollStart}{bankrollAdded ? ` + $${bankrollAdded} added` : ''} → ${bankrollEnd}</Text>}
-               <Text style={[styles.resultText, { color: bankrollResult >= 0 ? colors.primary : colors.mutedForeground }]}>Session result {bankrollResult >= 0 ? '+' : ''}${bankrollResult}</Text>
+              <View style={[styles.heroDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.bankrollSummary}>
+                <SummaryMetric label="START" value={formatCurrency(bankrollStart)} color={colors.foreground} muted={colors.mutedForeground} />
+                <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+                <SummaryMetric label="FINISH" value={formatCurrency(bankrollEnd)} sub={bankrollAdded ? `${formatCurrency(bankrollAdded)} added` : undefined} color={colors.foreground} muted={colors.mutedForeground} />
+                <View style={[styles.metricDivider, { backgroundColor: colors.border }]} />
+                <SummaryMetric label="RESULT" value={`${bankrollResult >= 0 ? '+' : '-'}${formatCurrency(Math.abs(bankrollResult))}`} color={bankrollResult >= 0 ? colors.primary : colors.destructive} muted={colors.mutedForeground} />
+              </View>
             </View>
 
             <BankrollChart
@@ -126,6 +144,16 @@ export default function ReportScreen() {
   );
 }
 
+function SummaryMetric({ label, value, sub, color, muted }: { label: string; value: string; sub?: string; color: string; muted: string }) {
+  return (
+    <View style={styles.summaryMetric}>
+      <Text style={[styles.summaryMetricLabel, { color: muted }]}>{label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={[styles.summaryMetricValue, { color }]}>{value}</Text>
+      {!!sub && <Text numberOfLines={1} style={[styles.summaryMetricSub, { color: muted }]}>{sub}</Text>}
+    </View>
+  );
+}
+
 function BankrollChart({
   values,
   width,
@@ -159,7 +187,6 @@ function BankrollChart({
   });
   const startY = insetY + ((high - values[0]) / range) * plotHeight;
   const finish = values[values.length - 1];
-  const formatMoney = (value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   return (
     <View style={[styles.chartCard, { width: chartWidth + 32, backgroundColor: cardColor, borderColor }]}>
@@ -168,7 +195,7 @@ function BankrollChart({
           <Text style={[styles.chartEyebrow, { color: accent }]}>BANKROLL JOURNEY</Text>
           <Text style={[styles.chartSubtitle, { color: muted }]}>Session result after each round</Text>
         </View>
-        <Text style={[styles.chartFinish, { color: finish >= values[0] ? accent : foreground }]}>{formatMoney(finish)}</Text>
+        <Text style={[styles.chartFinish, { color: finish >= values[0] ? accent : foreground }]}>{formatCurrency(finish)}</Text>
       </View>
       <Svg width={chartWidth} height={chartHeight}>
         <Line x1={insetX} y1={startY} x2={chartWidth - insetX} y2={startY} stroke={muted} strokeOpacity={0.24} strokeDasharray="5 5" />
@@ -193,10 +220,10 @@ function BankrollChart({
         ))}
       </Svg>
       <View style={styles.chartStats}>
-        <View><Text style={[styles.chartStatLabel, { color: muted }]}>START</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(values[0])}</Text></View>
-        <View style={styles.chartStatCenter}><Text style={[styles.chartStatLabel, { color: muted }]}>LOW</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(low)}</Text></View>
-        <View style={styles.chartStatCenter}><Text style={[styles.chartStatLabel, { color: muted }]}>HIGH</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(high)}</Text></View>
-        <View style={styles.chartStatRight}><Text style={[styles.chartStatLabel, { color: muted }]}>FINISH</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(finish)}</Text></View>
+        <View><Text style={[styles.chartStatLabel, { color: muted }]}>START</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatCurrency(values[0])}</Text></View>
+        <View style={styles.chartStatCenter}><Text style={[styles.chartStatLabel, { color: muted }]}>LOW</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatCurrency(low)}</Text></View>
+        <View style={styles.chartStatCenter}><Text style={[styles.chartStatLabel, { color: muted }]}>HIGH</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatCurrency(high)}</Text></View>
+        <View style={styles.chartStatRight}><Text style={[styles.chartStatLabel, { color: muted }]}>FINISH</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatCurrency(finish)}</Text></View>
       </View>
     </View>
   );
@@ -224,25 +251,32 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   listContent: { paddingHorizontal: 16 },
   heroCard: {
-    padding: 32,
+    padding: 22,
     borderRadius: 16,
     borderWidth: 1,
-    alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
   },
+  heroTop: { flexDirection: 'row', alignItems: 'center' },
+  heroSummary: { flex: 1, marginLeft: 18 },
   gradeCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 86,
+    height: 86,
+    borderRadius: 43,
     backgroundColor: 'rgba(255,255,255,0.05)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
   },
-  gradeTextBig: { fontSize: 48, fontFamily: 'Inter_700Bold' },
-  accText: { fontSize: 24, fontFamily: 'Inter_600SemiBold', marginBottom: 8 },
-  detailText: { fontSize: 16, fontFamily: 'Inter_400Regular', marginBottom: 4 },
-  resultText: { fontSize: 15, fontFamily: 'Inter_700Bold', marginTop: 3 },
+  gradeTextBig: { fontSize: 46, fontFamily: 'Inter_700Bold' },
+  accText: { fontSize: 30, lineHeight: 34, fontFamily: 'Inter_700Bold' },
+  accuracyLabel: { fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 1.1, marginBottom: 7 },
+  detailText: { fontSize: 13, fontFamily: 'Inter_400Regular', marginBottom: 3 },
+  heroDivider: { height: 1, marginVertical: 18 },
+  bankrollSummary: { flexDirection: 'row', alignItems: 'stretch' },
+  summaryMetric: { flex: 1, alignItems: 'center', minWidth: 0 },
+  summaryMetricLabel: { fontSize: 9, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
+  summaryMetricValue: { maxWidth: '100%', fontSize: 18, fontFamily: 'Inter_700Bold', marginTop: 4 },
+  summaryMetricSub: { fontSize: 8, fontFamily: 'Inter_500Medium', marginTop: 2 },
+  metricDivider: { width: 1, marginHorizontal: 8 },
   chartCard: { alignSelf: 'center', borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 28 },
   chartHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 },
   chartEyebrow: { fontSize: 12, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
