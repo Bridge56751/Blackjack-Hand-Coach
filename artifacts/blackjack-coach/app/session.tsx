@@ -906,7 +906,7 @@ const styles = StyleSheet.create({
      position: 'absolute', top: -4, alignSelf: 'center', paddingHorizontal: 13, paddingVertical: 4,
      borderRadius: 10, backgroundColor: '#0d3b1d',
    },
-   arcCaptionPlateSingle: { top: -14 },
+   arcCaptionPlateSingle: { top: -30 },
    arcCaption: { fontFamily: 'Inter_700Bold', color: 'rgba(235,209,137,0.88)', fontSize: 8, letterSpacing: 1.1 },
    bettingSpots: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', gap: 12, paddingHorizontal: 24, paddingBottom: 16, zIndex: 2 },
    betSeat: { width: 88, alignItems: 'center' },
