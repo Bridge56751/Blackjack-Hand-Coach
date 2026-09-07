@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
   headerBankroll: {
     width: 104,
     minHeight: 44,
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 10,
     borderRadius: 12,
@@ -802,6 +802,7 @@ const styles = StyleSheet.create({
     color: 'rgba(217,197,143,0.68)',
     fontSize: 8,
     letterSpacing: 1.2,
+    textAlign: 'center',
   },
   headerBankrollValue: {
     fontFamily: 'Inter_700Bold',
@@ -809,8 +810,9 @@ const styles = StyleSheet.create({
     fontSize: 19,
     lineHeight: 21,
     marginTop: 1,
+    textAlign: 'center',
   },
-  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 8, letterSpacing: 1, marginTop: 2 },
+  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 8, letterSpacing: 1, marginTop: 2, textAlign: 'center' },
   tableCenter: { flex: 1, justifyContent: 'flex-start' },
   hintPanel: {
     position: 'absolute',
