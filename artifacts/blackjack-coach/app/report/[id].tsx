@@ -52,10 +52,6 @@ export default function ReportScreen() {
               {isIndex && (
                 <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Basic Strategy match: {Math.round(stats.bookAccuracy * 100)}%</Text>
               )}
-              {!isIndex && stats.hasIndexComparison && (
-                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Hi-Lo Index match: {Math.round(stats.indexAccuracy * 100)}%</Text>
-              )}
-               <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} rounds played</Text>
                {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${bankrollStart}{bankrollAdded ? ` + $${bankrollAdded} added` : ''} → ${bankrollEnd}</Text>}
                <Text style={[styles.resultText, { color: bankrollResult >= 0 ? colors.primary : colors.mutedForeground }]}>Session result {bankrollResult >= 0 ? '+' : ''}${bankrollResult}</Text>
             </View>
