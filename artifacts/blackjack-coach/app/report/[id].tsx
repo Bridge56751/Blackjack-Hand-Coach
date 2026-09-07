@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { getActionName } from '@/lib/strategy';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 export default function ReportScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -13,6 +14,7 @@ export default function ReportScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { width: viewportWidth } = useWindowDimensions();
 
   const session = history.find(s => s.id === id);
   
@@ -31,6 +33,10 @@ export default function ReportScreen() {
   const bankrollEnd = session.bankrollEnd ?? bankrollStart + bankrollAdded;
   const bankrollResult = bankrollEnd - bankrollStart - bankrollAdded;
   const isIndex = stats.mode === 'hilo-index';
+  const bankrollSeries = session.hands.reduce<number[]>(
+    (values, hand) => [...values, values[values.length - 1] + (hand.netChange ?? 0)],
+    [bankrollStart],
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -55,6 +61,16 @@ export default function ReportScreen() {
                {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${bankrollStart}{bankrollAdded ? ` + $${bankrollAdded} added` : ''} → ${bankrollEnd}</Text>}
                <Text style={[styles.resultText, { color: bankrollResult >= 0 ? colors.primary : colors.mutedForeground }]}>Session result {bankrollResult >= 0 ? '+' : ''}${bankrollResult}</Text>
             </View>
+
+            <BankrollChart
+              values={bankrollSeries}
+              width={Math.min(viewportWidth - 64, 520)}
+              cardColor={colors.card}
+              borderColor={colors.border}
+              foreground={colors.foreground}
+              muted={colors.mutedForeground}
+              accent={colors.primary}
+            />
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
             {mistakes.length === 0 && (
@@ -110,6 +126,82 @@ export default function ReportScreen() {
   );
 }
 
+function BankrollChart({
+  values,
+  width,
+  cardColor,
+  borderColor,
+  foreground,
+  muted,
+  accent,
+}: {
+  values: number[];
+  width: number;
+  cardColor: string;
+  borderColor: string;
+  foreground: string;
+  muted: string;
+  accent: string;
+}) {
+  const chartWidth = Math.max(width, 260);
+  const chartHeight = 142;
+  const insetX = 10;
+  const insetY = 14;
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const range = Math.max(high - low, 1);
+  const plotWidth = chartWidth - insetX * 2;
+  const plotHeight = chartHeight - insetY * 2;
+  const points = values.map((value, index) => {
+    const x = insetX + (values.length === 1 ? plotWidth / 2 : (index / (values.length - 1)) * plotWidth);
+    const y = insetY + ((high - value) / range) * plotHeight;
+    return { x, y, value };
+  });
+  const startY = insetY + ((high - values[0]) / range) * plotHeight;
+  const finish = values[values.length - 1];
+  const formatMoney = (value: number) => `$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+  return (
+    <View style={[styles.chartCard, { width: chartWidth + 32, backgroundColor: cardColor, borderColor }]}>
+      <View style={styles.chartHeading}>
+        <View>
+          <Text style={[styles.chartEyebrow, { color: accent }]}>BANKROLL JOURNEY</Text>
+          <Text style={[styles.chartSubtitle, { color: muted }]}>Session result after each round</Text>
+        </View>
+        <Text style={[styles.chartFinish, { color: finish >= values[0] ? accent : foreground }]}>{formatMoney(finish)}</Text>
+      </View>
+      <Svg width={chartWidth} height={chartHeight}>
+        <Line x1={insetX} y1={startY} x2={chartWidth - insetX} y2={startY} stroke={muted} strokeOpacity={0.24} strokeDasharray="5 5" />
+        <Polyline
+          points={points.map(point => `${point.x},${point.y}`).join(' ')}
+          fill="none"
+          stroke={accent}
+          strokeWidth={3}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {points.map((point, index) => (
+          <Circle
+            key={`${point.x}-${index}`}
+            cx={point.x}
+            cy={point.y}
+            r={index === 0 || index === points.length - 1 ? 4 : 2.5}
+            fill={cardColor}
+            stroke={accent}
+            strokeWidth={2}
+          />
+        ))}
+      </Svg>
+      <View style={styles.chartStats}>
+        <View><Text style={[styles.chartStatLabel, { color: muted }]}>START</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(values[0])}</Text></View>
+        <View style={styles.chartStatCenter}><Text style={[styles.chartStatLabel, { color: muted }]}>LOW</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(low)}</Text></View>
+        <View style={styles.chartStatCenter}><Text style={[styles.chartStatLabel, { color: muted }]}>HIGH</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(high)}</Text></View>
+        <View style={styles.chartStatRight}><Text style={[styles.chartStatLabel, { color: muted }]}>FINISH</Text><Text style={[styles.chartStatValue, { color: foreground }]}>{formatMoney(finish)}</Text></View>
+      </View>
+    </View>
+  );
+}
+
 function ReportCard({ label, overlapped = false }: { label: string; overlapped?: boolean }) {
   const last = label.slice(-1);
   const hasSuit = ['♠', '♥', '♦', '♣'].includes(last);
@@ -151,6 +243,16 @@ const styles = StyleSheet.create({
   accText: { fontSize: 24, fontFamily: 'Inter_600SemiBold', marginBottom: 8 },
   detailText: { fontSize: 16, fontFamily: 'Inter_400Regular', marginBottom: 4 },
   resultText: { fontSize: 15, fontFamily: 'Inter_700Bold', marginTop: 3 },
+  chartCard: { alignSelf: 'center', borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 28 },
+  chartHeading: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 },
+  chartEyebrow: { fontSize: 12, fontFamily: 'Inter_700Bold', letterSpacing: 1 },
+  chartSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 3 },
+  chartFinish: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  chartStats: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  chartStatCenter: { alignItems: 'center' },
+  chartStatRight: { alignItems: 'flex-end' },
+  chartStatLabel: { fontSize: 9, fontFamily: 'Inter_700Bold', letterSpacing: 0.8 },
+  chartStatValue: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginTop: 2 },
   sectionTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold', marginBottom: 16 },
   emptyState: { padding: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
