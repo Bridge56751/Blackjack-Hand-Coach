@@ -36,6 +36,7 @@ export default function SessionScreen() {
   const [phase, setPhase] = useState<Phase>('betting');
   const [isDrawingHit, setIsDrawingHit] = useState(false);
   const [dealerTurn, setDealerTurn] = useState(false);
+  const [dealerHoleRevealed, setDealerHoleRevealed] = useState(false);
   const [message, setMessage] = useState('PLACE YOUR BETS');
   const [lastNet, setLastNet] = useState(0);
   const [insuranceBet, setInsuranceBet] = useState(0);
@@ -124,8 +125,8 @@ export default function SessionScreen() {
     setMessage('DEALER PLAYING...');
     let dealerCards = initialDealer;
     if (initialDealer[1]) countCards(initialDealer[1]);
+    setDealerHoleRevealed(true);
     const needsDealer = finalHands.some(hand => !hand.surrendered && handTotal(hand.cards).total <= 21 && !isBlackjack(hand));
-    await sleep(550); setDealer([...dealerCards]);
     while (needsDealer && dealerShouldHit(dealerCards, rules)) {
       await sleep(800);
       const next = draw(shoeNow); shoeNow = next.shoe; dealerCards = [...dealerCards, next.card];
@@ -162,6 +163,7 @@ export default function SessionScreen() {
   const deal = async () => {
     if (!totalBet || totalBet > bankroll) return;
     setDealerTurn(false);
+    setDealerHoleRevealed(false);
     roundBetsRef.current = [...bets];
     setBankroll(value => value - totalBet); setLastBets([...bets]); setBets([0, 0, 0]);
     setPhase('dealing'); setMessage('DEALING...'); setInsuranceBet(0); setInsuranceNet(undefined); decisionsRef.current = [];
@@ -257,7 +259,7 @@ export default function SessionScreen() {
     setBets(old => old.map((bet, i) => i === selectedSpot ? bet + amount : bet)); buzz();
   };
 
-  const newHand = () => { setDealerTurn(false); setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
+  const newHand = () => { setDealerTurn(false); setDealerHoleRevealed(false); setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
   const addPracticeChips = (amount: number) => {
     if (!addBankroll(amount)) return;
     setBankroll(value => value + amount);
@@ -383,13 +385,13 @@ export default function SessionScreen() {
             <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
           </View>
         )}
-        <View style={styles.dealerArea}>
-          <View style={styles.cardRow}>
-            {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={i === 1 && phase !== 'settled'} />)}
+        <View style={[styles.dealerArea, isCompactTable && styles.dealerAreaCompact]}>
+          <View style={[styles.cardRow, styles.dealerCardRow]}>
+            {dealer.map((card, i) => <CardView key={card.id} card={card} index={i} hidden={i === 1 && !dealerHoleRevealed} dealerSize />)}
           </View>
         </View>
 
-        <View style={[styles.tableRules, phase === 'settled' && styles.tableRulesSettled]}>
+        <View style={[styles.tableRules, isCompactTable && styles.tableRulesCompact, phase === 'settled' && styles.tableRulesSettled]}>
           <Text style={styles.rulesMain}>BLACKJACK PAYS 3 TO 2</Text>
           <Text style={styles.rulesSub}>{rules.dealerHitsSoft17 ? 'Dealer must hit on soft 17' : 'Dealer must stand on soft 17'}</Text>
           <View style={styles.rulesRibbon}>
@@ -901,12 +903,15 @@ const styles = StyleSheet.create({
   edgeNote: { fontFamily: 'Inter_600SemiBold', fontSize: 5, letterSpacing: .65, color: 'rgba(243,240,232,0.45)', marginTop: 1 },
   dealerArea: {
     alignItems: 'center',
-    marginTop: 30,
-    minHeight: 110,
+    marginTop: 38,
+    minHeight: 118,
     zIndex: 5,
   },
+  dealerAreaCompact: { marginTop: 30 },
   cardRow: { flexDirection: 'row', justifyContent: 'center', minHeight: 110 },
-  tableRules: { alignItems: 'center', marginTop: 12, marginBottom: 10 },
+  dealerCardRow: { minHeight: 118 },
+  tableRules: { alignItems: 'center', marginTop: 18, marginBottom: 10 },
+  tableRulesCompact: { marginTop: 8, marginBottom: 4 },
   tableRulesSettled: { opacity: 0.12 },
   rulesMain: {
     fontFamily: 'Inter_700Bold',
