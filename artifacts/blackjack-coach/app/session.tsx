@@ -418,7 +418,8 @@ export default function SessionScreen() {
           ) : (
              <View style={styles.handsArea}>
                 {displayHands.map((hand, index) => {
-                   const isActive = hand.id === current?.id && phase === 'playing';
+                    const isActive = hand.id === current?.id
+                      && (phase === 'dealing' || phase === 'insurance' || phase === 'playing');
                    return (
                       <View key={hand.id} style={[styles.handWrapper, { zIndex: isActive ? 10 : index, transform: [{ scale: isActive ? 1.15 : 0.9 }], marginTop: hands.length === 1 || (hands.length <= 3 && hand.spot === 2) ? 0 : 25 }]}>
                         <View style={styles.cardRow}>
