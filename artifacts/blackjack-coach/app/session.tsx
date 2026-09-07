@@ -489,7 +489,6 @@ export default function SessionScreen() {
                    ${Math.abs(lastNet).toLocaleString()}
                  </Text>
                )}
-               <Text style={styles.roundResultReason}>{message}</Text>
              </View>
            </View>
          )}
@@ -1031,17 +1030,6 @@ const styles = StyleSheet.create({
   roundResultWin: { color: '#ffd45f' },
   roundResultLoss: { color: '#ef5b57' },
   roundResultPush: { color: '#f3f0e8' },
-  roundResultReason: {
-    marginTop: 2,
-    fontFamily: 'Inter_700Bold',
-    fontSize: 10,
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    color: 'rgba(243,240,232,0.82)',
-    textShadowColor: 'rgba(0,0,0,0.95)',
-    textShadowOffset: { width: 0, height: 3 },
-    textShadowRadius: 7,
-  },
    bottomDock: { width: '100%', paddingHorizontal: 16, paddingTop: 6, backgroundColor: 'transparent' },
    bettingControls: { alignItems: 'center', paddingTop: 0 },
    chipRack: {
