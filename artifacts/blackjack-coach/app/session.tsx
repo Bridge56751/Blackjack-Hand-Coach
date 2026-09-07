@@ -168,17 +168,18 @@ export default function SessionScreen() {
     await settle(updated, dealer, shoeNow);
   };
 
-  const deal = async () => {
-    if (!totalBet || totalBet > bankroll) return;
+  const deal = async (wagers = bets) => {
+    const wagerTotal = wagers.reduce((sum, bet) => sum + bet, 0);
+    if (!wagerTotal || wagerTotal > bankroll) return;
     setDealerTurn(false);
     setDealerHoleRevealed(false);
-    roundBetsRef.current = [...bets];
-    setBankroll(value => value - totalBet); setLastBets([...bets]); setBets([0, 0, 0]);
+    roundBetsRef.current = [...wagers];
+    setBankroll(value => value - wagerTotal); setLastBets([...wagers]); setBets([0, 0, 0]);
     setPhase('dealing'); setMessage('DEALING...'); setInsuranceBet(0); setInsuranceNet(undefined); decisionsRef.current = [];
     const needsShuffle = shouldReshuffle(shoe.length, rules.decks);
     const fresh = needsShuffle ? createShoe(rules.decks) : shoe;
     if (needsShuffle) resetCount();
-    const round = dealInitialRound(fresh, bets, uid);
+    const round = dealInitialRound(fresh, wagers, uid);
     const shown = round.hands.map(hand => ({ ...hand, cards: [] }));
     setDealer([]); setHands(shown); setShoe(round.shoe);
     for (const event of round.events) {
@@ -268,6 +269,7 @@ export default function SessionScreen() {
   };
 
   const newHand = () => { setDealerTurn(false); setDealerHoleRevealed(false); setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
+  const repeatBet = () => { void deal(lastBets); };
   const addPracticeChips = (amount: number) => {
     if (!addBankroll(amount)) return;
     setBankroll(value => value + amount);
@@ -530,7 +532,7 @@ export default function SessionScreen() {
                <View style={styles.actionGrid}>
                   <View style={styles.actionRowPrimary}>
                      <ActionButton id="btn-clear" label="Clear" color="grey" icon={<Feather name="x" size={24} color="#fff" />} onPress={() => setBets(old => old.map((b, i) => i === selectedSpot ? 0 : b))} />
-                     <ActionButton id="deal-button" label="Deal" color="green" icon={<MaterialCommunityIcons name="cards-playing-outline" size={28} color="#fff" />} onPress={deal} disabled={!totalBet} />
+                     <ActionButton id="deal-button" label="Deal" color="green" icon={<MaterialCommunityIcons name="cards-playing-outline" size={28} color="#fff" />} onPress={() => { void deal(); }} disabled={!totalBet} />
                      <ActionButton id="btn-repeat" label="Repeat" color="blue" icon={<Feather name="refresh-cw" size={24} color="#fff" />} onPress={() => setBets([...lastBets])} disabled={lastBets.reduce((a,b)=>a+b,0) > bankroll} />
                   </View>
                </View>
@@ -562,6 +564,7 @@ export default function SessionScreen() {
             <View style={styles.actionGrid}>
                 <View style={styles.actionRowPrimary}>
                   <ActionButton id="next-hand" label="Next Round" color="blue" icon={<Feather name="play" size={28} color="#fff"/>} onPress={newHand} />
+                   <ActionButton id="repeat-bet-next" label="Repeat Bet" color="green" icon={<Feather name="refresh-cw" size={26} color="#fff"/>} onPress={repeatBet} disabled={!lastBets.some(Boolean) || lastBets.reduce((sum, bet) => sum + bet, 0) > bankroll} />
                </View>
             </View>
          )}
