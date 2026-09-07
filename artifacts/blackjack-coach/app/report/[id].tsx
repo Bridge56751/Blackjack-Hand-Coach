@@ -70,11 +70,11 @@ export default function ReportScreen() {
           <View style={[styles.mistakeCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
             <View style={styles.scenarioRow}>
               <View style={styles.scenarioHalf}>
-                <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>{item.spot ? `Spot ${item.spot} · Dealer Up-Card` : 'Dealer Up-Card'}</Text>
+                <Text numberOfLines={2} style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>{item.spot ? `Spot ${item.spot} · Dealer Up-Card` : 'Dealer Up-Card'}</Text>
                 <ReportCard label={item.dealerCardLabel ?? item.dealerCard} />
               </View>
               <View style={styles.scenarioHalf}>
-                <Text style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>Your Hand</Text>
+                <Text numberOfLines={2} style={[styles.scenarioLabel, { color: colors.mutedForeground }]}>Your Hand</Text>
                 <View style={styles.cardsRow}>
                   {(item.playerCardLabels ?? item.playerCards).map((card, i) => (
                     <ReportCard key={i} label={card} overlapped={i > 0} />
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   scenarioRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
   scenarioHalf: { flex: 1 },
-  scenarioLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 },
+  scenarioLabel: { minHeight: 30, fontSize: 12, lineHeight: 15, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 },
   miniCard: {
     width: 48,
     height: 68,
@@ -180,11 +180,11 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-  miniCardOverlapped: { marginLeft: -11 },
+  miniCardOverlapped: { marginLeft: 6 },
   miniCardCorner: { position: 'absolute', top: 3, left: 4, width: 18, alignItems: 'center', zIndex: 2 },
   miniCardRank: { fontSize: 15, lineHeight: 15, fontFamily: 'Inter_700Bold', letterSpacing: -.5 },
   miniCardSuitSmall: { fontSize: 11, lineHeight: 11 },
-  miniCardSuit: { fontSize: 27, opacity: .94 },
+  miniCardSuit: { position: 'absolute', right: 7, bottom: 8, fontSize: 25, opacity: .94 },
   cardsRow: { flexDirection: 'row' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
   feedbackRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16 },
