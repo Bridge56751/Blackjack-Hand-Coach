@@ -66,7 +66,6 @@ export default function ReportScreen() {
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
-            {session.hands.some(hand => hand.playerHands?.length) && <View style={[styles.roundSummary, { backgroundColor: colors.card, borderColor: colors.border }]}>{session.hands.map((hand, index) => <Text key={hand.id} style={[styles.roundText, { color: colors.mutedForeground }]}>Round {index + 1} · ${hand.bet ?? 0} · {hand.netChange && hand.netChange > 0 ? '+' : ''}{hand.netChange ?? 0} {hand.playerHands?.length ? `(${hand.playerHands.map(item => `${item.spot ? `Spot ${item.spot}: ` : ''}${item.outcome}`).join(' / ')})` : ''}{hand.insuranceBet ? ` · Table ins: ${hand.insuranceNet && hand.insuranceNet > 0 ? '+' : ''}${hand.insuranceNet}` : ''}</Text>)}</View>}
             {mistakes.length === 0 && (
               <View style={[styles.emptyState, { backgroundColor: colors.card, borderColor: colors.border }]}>
                 <Feather name="award" size={40} color={colors.primary} style={{ marginBottom: 12 }} />
@@ -168,8 +167,6 @@ const styles = StyleSheet.create({
   emptyState: { padding: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
   emptySub: { fontSize: 14, fontFamily: 'Inter_400Regular' },
-  roundSummary: { borderWidth: 1, borderRadius: 12, padding: 14, marginBottom: 22, gap: 6 },
-  roundText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
   mistakeCard: {
     borderRadius: 12,
     borderWidth: 1,
