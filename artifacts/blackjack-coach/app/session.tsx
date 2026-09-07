@@ -755,14 +755,14 @@ const styles = StyleSheet.create({
   headerExitText: {
     fontFamily: 'Inter_700Bold',
     color: '#f3f0e8',
-    fontSize: 9,
-    letterSpacing: 0.75,
+    fontSize: 10,
+    letterSpacing: 0.65,
   },
   headerExitSub: {
     fontFamily: 'Inter_700Bold',
     color: 'rgba(217,197,143,0.76)',
-    fontSize: 7,
-    letterSpacing: 1.35,
+    fontSize: 8,
+    letterSpacing: 1.25,
     marginTop: 2,
   },
   headerBrand: {
