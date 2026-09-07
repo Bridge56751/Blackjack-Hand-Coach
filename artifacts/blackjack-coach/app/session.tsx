@@ -377,7 +377,7 @@ export default function SessionScreen() {
           </View>
         </View>
 
-        <View style={styles.tableRules}>
+        <View style={[styles.tableRules, phase === 'settled' && styles.tableRulesSettled]}>
           <Text style={styles.rulesMain}>BLACKJACK PAYS 3 TO 2</Text>
           <Text style={styles.rulesSub}>{rules.dealerHitsSoft17 ? 'Dealer must hit on soft 17' : 'Dealer must stand on soft 17'}</Text>
           <View style={styles.rulesRibbon}>
@@ -442,6 +442,33 @@ export default function SessionScreen() {
              </View>
           )}
         </View>
+         {phase === 'settled' && (
+           <View pointerEvents="none" style={styles.roundResultOverlay}>
+             <Text
+               style={[
+                 styles.roundResultTitle,
+                 lastNet > 0
+                   ? styles.roundResultWin
+                   : lastNet < 0
+                     ? styles.roundResultLoss
+                     : styles.roundResultPush,
+               ]}
+             >
+               {lastNet > 0 ? 'YOU WON' : lastNet < 0 ? 'YOU LOST' : 'PUSH'}
+             </Text>
+             {lastNet !== 0 && (
+               <Text
+                 style={[
+                   styles.roundResultAmount,
+                   lastNet > 0 ? styles.roundResultWin : styles.roundResultLoss,
+                 ]}
+               >
+                 ${Math.abs(lastNet).toLocaleString()}
+               </Text>
+             )}
+             <Text style={styles.roundResultReason}>{message}</Text>
+           </View>
+         )}
       </View>
 
       {/* Bottom Dock Controls */}
@@ -510,9 +537,7 @@ export default function SessionScreen() {
          )}
          {phase === 'settled' && (
             <View style={styles.actionGrid}>
-               <Text style={styles.resultMainText}>{message}</Text>
-               {lastNet !== 0 && <Text style={styles.resultNetText}>{lastNet > 0 ? '+' : ''}${lastNet}</Text>}
-               <View style={[styles.actionRowPrimary, { marginTop: 12 }]}>
+                <View style={styles.actionRowPrimary}>
                   <ActionButton id="next-hand" label="Next Round" color="blue" icon={<Feather name="play" size={28} color="#fff"/>} onPress={newHand} />
                </View>
             </View>
@@ -867,6 +892,7 @@ const styles = StyleSheet.create({
   },
   cardRow: { flexDirection: 'row', justifyContent: 'center', minHeight: 110 },
   tableRules: { alignItems: 'center', marginTop: 12, marginBottom: 10 },
+  tableRulesSettled: { opacity: 0.12 },
   rulesMain: {
     fontFamily: 'Inter_700Bold',
     fontSize: 20,
@@ -942,6 +968,49 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold', color: '#ebd189', fontSize: 12, marginTop: 4, textTransform: 'uppercase',
     textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
+  roundResultOverlay: {
+    position: 'absolute',
+    top: '28%',
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roundResultTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 48,
+    lineHeight: 52,
+    letterSpacing: -1.2,
+    textShadowColor: 'rgba(0,0,0,0.82)',
+    textShadowOffset: { width: 0, height: 5 },
+    textShadowRadius: 4,
+  },
+  roundResultAmount: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 66,
+    lineHeight: 70,
+    letterSpacing: -2,
+    textShadowColor: 'rgba(0,0,0,0.82)',
+    textShadowOffset: { width: 0, height: 5 },
+    textShadowRadius: 4,
+  },
+  roundResultWin: { color: '#ffd45f' },
+  roundResultLoss: { color: '#ef5b57' },
+  roundResultPush: { color: '#f3f0e8' },
+  roundResultReason: {
+    marginTop: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(4,25,11,0.72)',
+    fontFamily: 'Inter_700Bold',
+    fontSize: 10,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: 'rgba(243,240,232,0.82)',
+  },
    bottomDock: { width: '100%', paddingHorizontal: 16, paddingTop: 6, backgroundColor: 'transparent' },
    bettingControls: { alignItems: 'center', paddingTop: 0 },
    chipRack: {
@@ -1009,8 +1078,6 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
   promptText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#ebd189', marginBottom: 16, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  resultMainText: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#ebd189', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
-  resultNetText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#fff', marginTop: 4, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   topUpOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.68)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   topUpSheet: { width: '100%', maxWidth: 360, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(217,197,143,0.48)', backgroundColor: '#0b2e17', padding: 22, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: .55, shadowRadius: 20, elevation: 14 },
   topUpEyebrow: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 9, letterSpacing: 1.4 },
