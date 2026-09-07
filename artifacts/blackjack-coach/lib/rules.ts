@@ -12,6 +12,7 @@ export type TableRules = {
   resplitAces: boolean;
   coachEnabled?: boolean;
   cardCountingEnabled?: boolean;
+  showSeatPrompt?: boolean;
   multipleHandsEnabled?: boolean;
   /** Basic strategy is the safe default for saved sessions created before indices existed. */
   accuracyMode?: AccuracyMode;
@@ -27,6 +28,7 @@ export const DEFAULT_TABLE_RULES: TableRules = {
   resplitAces: true,
   coachEnabled: true,
   cardCountingEnabled: false,
+  showSeatPrompt: true,
   multipleHandsEnabled: false,
   accuracyMode: 'basic',
 };
@@ -44,6 +46,7 @@ export function normalizeTableRules(rules?: Partial<TableRules>): TableRules {
     ...rules,
     coachEnabled: rules?.coachEnabled ?? true,
     cardCountingEnabled: rules?.cardCountingEnabled ?? false,
+    showSeatPrompt: rules?.showSeatPrompt ?? true,
     multipleHandsEnabled: rules?.multipleHandsEnabled ?? false,
     accuracyMode: rules?.accuracyMode === 'hilo-index' ? 'hilo-index' : 'basic',
   };

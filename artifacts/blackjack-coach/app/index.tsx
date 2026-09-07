@@ -97,7 +97,7 @@ function HeroCards() {
 }
 
 export default function DashboardScreen() {
-  const { history, preferredRules, preferredRulesReady, startSession } = useCoach();
+  const { history, preferredRules, preferredRulesReady, startSession, updatePreferredRules } = useCoach();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -127,6 +127,14 @@ export default function DashboardScreen() {
   const handleStart = () => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    if (preferredRules.showSeatPrompt === false) {
+      startSession(normalizeTableRules({
+        ...preferredRules,
+        accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
+      }));
+      router.push('/session');
+      return;
     }
     setSeatPrompt('coach');
   };
@@ -278,6 +286,24 @@ export default function DashboardScreen() {
                 ? 'Choose whether the running count, true count, and estimated edge appear on the table. Your decisions are still graded at the count either way.'
                 : 'Choose whether Hit and Stand percentages and the recommended action appear while you play. Every decision is still graded after the session.'}
             </Text>
+            <Pressable
+              testID="seat-prompt-always-show"
+              onPress={() => updatePreferredRules(current => normalizeTableRules({
+                ...current,
+                showSeatPrompt: current.showSeatPrompt === false,
+              }))}
+              style={styles.promptPreference}
+            >
+              <Feather
+                name={preferredRules.showSeatPrompt === false ? 'square' : 'check-square'}
+                size={18}
+                color={preferredRules.showSeatPrompt === false ? 'rgba(255,255,255,0.5)' : '#D4AF37'}
+              />
+              <View style={styles.promptPreferenceCopy}>
+                <Text style={styles.promptPreferenceTitle}>Always show before taking a seat</Text>
+                <Text style={styles.promptPreferenceDetail}>Turn off to use your saved Dealer Settings automatically.</Text>
+              </View>
+            </Pressable>
             <View style={styles.promptActions}>
               {seatPrompt === 'coach' ? (
                 <>
@@ -604,6 +630,20 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 9,
   },
+  promptPreference: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  promptPreferenceCopy: { flex: 1, marginLeft: 10 },
+  promptPreferenceTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#FFFFFF' },
+  promptPreferenceDetail: { fontFamily: 'Inter_400Regular', fontSize: 10, lineHeight: 14, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
   promptActions: {
     gap: 10,
     marginTop: 22,

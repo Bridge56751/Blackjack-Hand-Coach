@@ -38,6 +38,7 @@ export default function SettingsScreen() {
       accuracyMode: current.accuracyMode,
       cardCountingEnabled: current.cardCountingEnabled,
       coachEnabled: current.coachEnabled,
+      showSeatPrompt: current.showSeatPrompt,
     }));
   };
 
