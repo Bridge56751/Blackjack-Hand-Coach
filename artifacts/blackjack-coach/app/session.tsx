@@ -455,31 +455,34 @@ export default function SessionScreen() {
           )}
         </View>
          {phase === 'settled' && (
-           <View pointerEvents="none" style={styles.roundResultOverlay}>
-             <Text
-               style={[
-                 styles.roundResultTitle,
-                 lastNet > 0
-                   ? styles.roundResultWin
-                   : lastNet < 0
-                     ? styles.roundResultLoss
-                     : styles.roundResultPush,
-               ]}
-             >
-               {lastNet > 0 ? 'YOU WON' : lastNet < 0 ? 'YOU LOST' : 'PUSH'}
-             </Text>
-             {lastNet !== 0 && (
+           <>
+             <View pointerEvents="none" style={styles.roundResultScrim} />
+             <View pointerEvents="none" style={styles.roundResultOverlay}>
                <Text
                  style={[
-                   styles.roundResultAmount,
-                   lastNet > 0 ? styles.roundResultWin : styles.roundResultLoss,
+                   styles.roundResultTitle,
+                   lastNet > 0
+                     ? styles.roundResultWin
+                     : lastNet < 0
+                       ? styles.roundResultLoss
+                       : styles.roundResultPush,
                  ]}
                >
-                 ${Math.abs(lastNet).toLocaleString()}
+                 {lastNet > 0 ? 'YOU WON' : lastNet < 0 ? 'YOU LOST' : 'PUSH'}
                </Text>
-             )}
-             <Text style={styles.roundResultReason}>{message}</Text>
-           </View>
+               {lastNet !== 0 && (
+                 <Text
+                   style={[
+                     styles.roundResultAmount,
+                     lastNet > 0 ? styles.roundResultWin : styles.roundResultLoss,
+                   ]}
+                 >
+                   ${Math.abs(lastNet).toLocaleString()}
+                 </Text>
+               )}
+               <Text style={styles.roundResultReason}>{message}</Text>
+             </View>
+           </>
          )}
       </View>
 
@@ -988,6 +991,11 @@ const styles = StyleSheet.create({
     zIndex: 30,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  roundResultScrim: {
+    ...StyleSheet.absoluteFill,
+    zIndex: 29,
+    backgroundColor: 'rgba(2,16,7,0.28)',
   },
   roundResultTitle: {
     fontFamily: 'Inter_700Bold',
