@@ -34,6 +34,8 @@ export default function SessionScreen() {
   const [hands, setHands] = useState<GameHand[]>([]);
   const [active, setActive] = useState(0);
   const [phase, setPhase] = useState<Phase>('betting');
+  const [isDrawingHit, setIsDrawingHit] = useState(false);
+  const [dealerTurn, setDealerTurn] = useState(false);
   const [message, setMessage] = useState('PLACE YOUR BETS');
   const [lastNet, setLastNet] = useState(0);
   const [insuranceBet, setInsuranceBet] = useState(0);
@@ -117,13 +119,15 @@ export default function SessionScreen() {
   };
 
   const settle = async (finalHands: GameHand[], initialDealer: Card[], shoeNow: Card[], forcedInsNet?: number, forcedInsBet?: number) => {
-    setPhase('settled');
+    setDealerTurn(true);
+    setPhase('dealing');
+    setMessage('DEALER PLAYING...');
     let dealerCards = initialDealer;
     if (initialDealer[1]) countCards(initialDealer[1]);
     const needsDealer = finalHands.some(hand => !hand.surrendered && handTotal(hand.cards).total <= 21 && !isBlackjack(hand));
-    await sleep(300); setDealer([...dealerCards]);
+    await sleep(550); setDealer([...dealerCards]);
     while (needsDealer && dealerShouldHit(dealerCards, rules)) {
-      await sleep(380);
+      await sleep(800);
       const next = draw(shoeNow); shoeNow = next.shoe; dealerCards = [...dealerCards, next.card];
       countCards(next.card);
       setDealer(dealerCards); buzz();
@@ -144,6 +148,9 @@ export default function SessionScreen() {
       playerHands: resolved.map(hand => ({ cards: hand.cards.map(cardLabel), bet: hand.bet, outcome: hand.outcome!, netChange: settleHand(hand, dealerCards).credit - hand.bet, spot: hand.spot, label: `Spot ${hand.spot}` }))
     });
     setMessage(net > 0 ? `TABLE UP $${net}` : net < 0 ? 'DEALER TAKES IT' : 'TABLE PUSH');
+    await sleep(850);
+    setDealerTurn(false);
+    setPhase('settled');
   };
 
   const advance = async (updated: GameHand[], shoeNow: Card[], index: number) => {
@@ -154,6 +161,7 @@ export default function SessionScreen() {
 
   const deal = async () => {
     if (!totalBet || totalBet > bankroll) return;
+    setDealerTurn(false);
     roundBetsRef.current = [...bets];
     setBankroll(value => value - totalBet); setLastBets([...bets]); setBets([0, 0, 0]);
     setPhase('dealing'); setMessage('DEALING...'); setInsuranceBet(0); setInsuranceNet(undefined); decisionsRef.current = [];
@@ -207,18 +215,22 @@ export default function SessionScreen() {
   const declineInsurance = async () => { if (hands[0]) addDecision('N', hands[0], true); setPhase('dealing'); await resolveInsurance(0); };
 
   const act = async (action: Action) => {
-    if (!current || phase !== 'playing') return;
+    if (!current || phase !== 'playing' || isDrawingHit) return;
     addDecision(action, current); buzz();
     if (action === 'S') return advance(hands, shoe, active);
     if (action === 'R') return advance(hands.map((hand, i) => i === active ? { ...hand, surrendered: true } : hand), shoe, active);
     if (action === 'H') {
       if (current.splitAces) return;
-      setPhase('dealing'); await sleep(180); const next = draw(shoe);
+      setIsDrawingHit(true); await sleep(180); const next = draw(shoe);
       const updated = hands.map((hand, i) => i === active ? { ...hand, cards: [...hand.cards, next.card] } : hand);
       countCards(next.card);
       setHands(updated); setShoe(next.shoe);
-      if (handTotal(updated[active].cards).total >= 21) { await sleep(300); return advance(updated, next.shoe, active); }
-      setPhase('playing'); return;
+      if (handTotal(updated[active].cards).total >= 21) {
+        await sleep(300);
+        setIsDrawingHit(false);
+        return advance(updated, next.shoe, active);
+      }
+      setIsDrawingHit(false); return;
     }
     if (action === 'D' && bankroll >= current.bet) {
       setPhase('dealing'); setBankroll(value => value - current.bet);
@@ -245,7 +257,7 @@ export default function SessionScreen() {
     setBets(old => old.map((bet, i) => i === selectedSpot ? bet + amount : bet)); buzz();
   };
 
-  const newHand = () => { setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
+  const newHand = () => { setDealerTurn(false); setDealer([]); setHands([]); setActive(0); setPhase('betting'); setMessage(bankroll >= 5 ? 'PLACE YOUR BETS' : 'OUT OF CHIPS'); };
   const addPracticeChips = (amount: number) => {
     if (!addBankroll(amount)) return;
     setBankroll(value => value + amount);
@@ -525,13 +537,13 @@ export default function SessionScreen() {
          {phase === 'playing' && (
             <View style={styles.actionGrid}>
                <View style={styles.actionRowSecondary}>
-                  {canR && <ActionButton id="action-surrender" label="Surrender" color="grey" size="small" icon={<MaterialCommunityIcons name="flag-variant" size={20} color="#fff"/>} onPress={() => act('R')} />}
-                  <ActionButton id="action-split" label="Split" color="yellow" size="small" disabled={!canP} icon={<MaterialCommunityIcons name="arrow-split-vertical" size={20} color="#fff"/>} onPress={() => act('P')} />
+                   {canR && <ActionButton id="action-surrender" label="Surrender" color="grey" size="small" disabled={isDrawingHit} icon={<MaterialCommunityIcons name="flag-variant" size={20} color="#fff"/>} onPress={() => act('R')} />}
+                   <ActionButton id="action-split" label="Split" color="yellow" size="small" disabled={!canP || isDrawingHit} icon={<MaterialCommunityIcons name="arrow-split-vertical" size={20} color="#fff"/>} onPress={() => act('P')} />
                </View>
                <View style={styles.actionRowPrimary}>
-                  <ActionButton id="action-stand" label="Stand" color="red" icon={<MaterialCommunityIcons name="hand-back-right" size={26} color="#fff"/>} onPress={() => act('S')} />
-                  <ActionButton id="action-double" label="Double" color="blue" disabled={!canD} icon={<FontAwesome5 name="coins" size={22} color="#fff"/>} onPress={() => act('D')} />
-                  <ActionButton id="action-hit" label="Hit" color="green" icon={<MaterialCommunityIcons name="arrow-down-bold" size={28} color="#fff"/>} onPress={() => act('H')} disabled={!!current?.splitAces} />
+                   <ActionButton id="action-stand" label="Stand" color="red" disabled={isDrawingHit} icon={<MaterialCommunityIcons name="hand-back-right" size={26} color="#fff"/>} onPress={() => act('S')} />
+                   <ActionButton id="action-double" label="Double" color="blue" disabled={!canD || isDrawingHit} icon={<FontAwesome5 name="coins" size={22} color="#fff"/>} onPress={() => act('D')} />
+                   <ActionButton id="action-hit" label="Hit" color="green" icon={<MaterialCommunityIcons name="arrow-down-bold" size={28} color="#fff"/>} onPress={() => act('H')} disabled={!!current?.splitAces || isDrawingHit} />
                </View>
             </View>
          )}
@@ -544,7 +556,7 @@ export default function SessionScreen() {
          )}
          {phase === 'dealing' && (
             <View style={styles.actionGrid}>
-               <Text style={styles.promptText}>DEALING...</Text>
+                <Text style={styles.promptText}>{dealerTurn ? 'DEALER PLAYING...' : 'DEALING...'}</Text>
             </View>
          )}
       </View>
