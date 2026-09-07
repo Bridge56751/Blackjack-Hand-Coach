@@ -457,9 +457,8 @@ export default function SessionScreen() {
           )}
         </View>
          {phase === 'settled' && (
-           <>
-             <View pointerEvents="none" style={styles.roundResultScrim} />
-             <View pointerEvents="none" style={styles.roundResultOverlay}>
+           <View pointerEvents="none" style={styles.roundResultOverlay}>
+             <View style={styles.roundResultPanel}>
                <Text
                  style={[
                    styles.roundResultTitle,
@@ -484,7 +483,7 @@ export default function SessionScreen() {
                )}
                <Text style={styles.roundResultReason}>{message}</Text>
              </View>
-           </>
+           </View>
          )}
       </View>
 
@@ -997,10 +996,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  roundResultScrim: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 29,
-    backgroundColor: 'rgba(2,16,7,0.28)',
+  roundResultPanel: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 250,
+    paddingHorizontal: 22,
+    paddingVertical: 12,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(3,22,10,0.68)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.46,
+    shadowRadius: 18,
+    elevation: 12,
   },
   roundResultTitle: {
     fontFamily: 'Inter_700Bold',
