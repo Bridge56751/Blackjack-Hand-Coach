@@ -5,14 +5,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Card, isRed } from '../lib/game';
 
-export function CardView({ card, hidden, index, scale = 1 }: { card?: Card; hidden?: boolean; index: number; scale?: number }) {
+export function CardView({ card, hidden, index }: { card?: Card; hidden?: boolean; index: number }) {
   const cardW = 76;
   const cardH = 110;
   const margin = index ? -52 : 0;
 
   const containerStyle = [
     styles.cardContainer,
-    { width: cardW, height: cardH, marginLeft: margin, transform: [{ scale }] }
+    { width: cardW, height: cardH, marginLeft: margin }
   ];
 
   if (hidden) {
