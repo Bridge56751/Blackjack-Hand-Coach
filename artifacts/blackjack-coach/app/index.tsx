@@ -151,11 +151,13 @@ export default function DashboardScreen() {
     beginSession(coachEnabled, false);
   };
 
-  const overallDecisions = history.flatMap(s => s.hands.flatMap(h => h.decisions));
+  const selectedMode = countAdjustedAccuracy ? 'hilo-index' : 'basic';
+  const selectedHistory = history.filter(session => getSessionStats(session).mode === selectedMode);
+  const overallDecisions = selectedHistory.flatMap(s => s.hands.flatMap(h => h.decisions));
   const totalD = overallDecisions.length;
   const correctD = overallDecisions.filter(d => d.isCorrect).length;
   const acc = totalD === 0 ? 0 : Math.round((correctD / totalD) * 100);
-  const totalHands = history.reduce((sum, s) => sum + s.hands.length, 0);
+  const totalHands = selectedHistory.reduce((sum, s) => sum + s.hands.length, 0);
 
   if (!onboardingReady || !preferredRulesReady) {
     return <View style={[styles.container, { backgroundColor: colors.background }]} />;
@@ -229,7 +231,9 @@ export default function DashboardScreen() {
 
         <View style={styles.statsContainer}>
            <View style={styles.statBox}>
-              <Text style={styles.statLabel}>OVERALL ACCURACY</Text>
+              <Text style={styles.statLabel}>
+                {countAdjustedAccuracy ? 'CARD COUNT ACCURACY' : 'BASIC STRATEGY ACCURACY'}
+              </Text>
               <Text style={styles.statValue}>{acc}%</Text>
            </View>
            <View style={styles.statDivider} />
@@ -239,11 +243,11 @@ export default function DashboardScreen() {
            </View>
         </View>
 
-        {history.length > 0 && (
+        {selectedHistory.length > 0 && (
           <View style={[styles.recentSummary, { borderColor: 'rgba(255, 255, 255, 0.08)' }]}>
             <Text style={[styles.recentLabel, { color: 'rgba(255, 255, 255, 0.6)' }]}>RECENT SESSION</Text>
             <Text style={[styles.recentText, { color: '#FFFFFF' }]}>
-              {new Date(history[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {history[0].hands.length} rounds played
+              {new Date(selectedHistory[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} · {selectedHistory[0].hands.length} rounds played
             </Text>
           </View>
         )}
