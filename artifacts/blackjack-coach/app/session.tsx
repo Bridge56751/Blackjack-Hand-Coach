@@ -294,7 +294,8 @@ export default function SessionScreen() {
       {/* Blackjack Coach header */}
       <View style={[styles.tableHeader, { paddingTop: Math.max(insets.top, 10) }]}>
         <TouchableOpacity testID="end-session" onPress={end} style={styles.headerExit}>
-          <Feather name="log-out" size={17} color="#d9c58f" />
+          <Text style={styles.headerExitText}>END & GRADE</Text>
+          <Text style={styles.headerExitSub}>SESSION</Text>
         </TouchableOpacity>
         <View style={styles.headerBrand}>
           <Text style={styles.headerBrandMain}>BLACKJACK</Text>
@@ -739,19 +740,32 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerExit: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 104,
+    minHeight: 44,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(217,197,143,0.38)',
-    backgroundColor: 'rgba(6,34,15,0.55)',
+    borderColor: 'rgba(217,197,143,0.46)',
+    backgroundColor: 'rgba(6,34,15,0.72)',
+  },
+  headerExitText: {
+    fontFamily: 'Inter_700Bold',
+    color: '#f3f0e8',
+    fontSize: 9,
+    letterSpacing: 0.75,
+  },
+  headerExitSub: {
+    fontFamily: 'Inter_700Bold',
+    color: 'rgba(217,197,143,0.76)',
+    fontSize: 7,
+    letterSpacing: 1.35,
+    marginTop: 2,
   },
   headerBrand: {
     position: 'absolute',
-    left: 70,
-    right: 105,
+    left: 120,
+    right: 120,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -769,23 +783,31 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   headerBankroll: {
-    minWidth: 88,
+    width: 104,
+    minHeight: 44,
     alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(217,197,143,0.36)',
+    backgroundColor: 'rgba(6,34,15,0.72)',
   },
   headerBankrollDisabled: { opacity: 0.5 },
   headerBankrollLabel: {
     fontFamily: 'Inter_600SemiBold',
     color: 'rgba(217,197,143,0.68)',
-    fontSize: 7,
+    fontSize: 8,
     letterSpacing: 1.2,
   },
   headerBankrollValue: {
     fontFamily: 'Inter_700Bold',
     color: '#f3f0e8',
-    fontSize: 15,
+    fontSize: 19,
+    lineHeight: 21,
     marginTop: 1,
   },
-  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 6, letterSpacing: .8, marginTop: 2 },
+  headerBankrollAdd: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 8, letterSpacing: 1, marginTop: 2 },
   tableCenter: { flex: 1, justifyContent: 'flex-start' },
   hintPanel: {
     position: 'absolute',
