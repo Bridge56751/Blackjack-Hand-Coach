@@ -540,7 +540,14 @@ export default function SessionScreen() {
          )}
          {phase === 'insurance' && (
             <View style={styles.actionGrid}>
-               <Text style={styles.promptText}>INSURANCE FOR ${insuranceStake}?</Text>
+               <Text
+                 style={styles.promptText}
+                 numberOfLines={1}
+                 adjustsFontSizeToFit
+                 minimumFontScale={0.68}
+               >
+                 INSURANCE FOR ${insuranceStake}?
+               </Text>
                <View style={styles.actionRowPrimary}>
                   <ActionButton id="insurance-decline" label="No" color="red" icon={<Feather name="x" size={28} color="#fff"/>} onPress={declineInsurance} />
                   <ActionButton id="insurance-take" label="Yes" color="green" icon={<Feather name="check" size={28} color="#fff"/>} onPress={buyInsurance} disabled={bankroll < insuranceStake} />
@@ -826,7 +833,7 @@ const styles = StyleSheet.create({
   headerBrandMain: {
     fontFamily: 'Inter_700Bold',
     color: '#f3f0e8',
-    fontSize: 13,
+    fontSize: 15,
     letterSpacing: 3,
   },
   headerBrandSub: {
@@ -1099,7 +1106,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold', fontStyle: 'italic', fontSize: 14, color: '#fff', marginTop: 6,
     textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 2,
   },
-  promptText: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#ebd189', marginBottom: 16, textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
+  promptText: { maxWidth: '92%', fontFamily: 'Inter_700Bold', fontSize: 18, color: '#ebd189', marginBottom: 16, textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.8)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 },
   topUpOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.68)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   topUpSheet: { width: '100%', maxWidth: 360, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(217,197,143,0.48)', backgroundColor: '#0b2e17', padding: 22, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: .55, shadowRadius: 20, elevation: 14 },
   topUpEyebrow: { fontFamily: 'Inter_700Bold', color: '#d9c58f', fontSize: 9, letterSpacing: 1.4 },
