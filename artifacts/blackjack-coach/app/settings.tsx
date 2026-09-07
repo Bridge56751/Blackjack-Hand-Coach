@@ -58,7 +58,6 @@ export default function SettingsScreen() {
           <Text style={[styles.title, { color: colors.foreground }]}>Dealer Settings</Text>
           <View style={[styles.savedBadge, { backgroundColor: 'rgba(212,175,55,0.12)' }]}>
             <Feather name="check" size={12} color={colors.primary} />
-            <Text style={[styles.savedText, { color: colors.primary }]}>Saved automatically</Text>
           </View>
         </View>
 
@@ -216,7 +215,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   title: { fontFamily: 'Inter_700Bold', fontSize: 31, letterSpacing: -0.7 },
   savedBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
-  savedText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: 0.5 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, lineHeight: 22 },
   sectionLead: { marginTop: 30, marginBottom: 13 },
   sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.45, marginBottom: 5 },

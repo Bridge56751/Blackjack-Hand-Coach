@@ -5,7 +5,6 @@ import { useCoach, getSessionStats } from '@/lib/context';
 import { getActionName } from '@/lib/strategy';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
-import { rulesSummary } from '@/lib/rules';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function ReportScreen() {
@@ -59,10 +58,6 @@ export default function ReportScreen() {
                <Text style={[styles.detailText, { color: colors.mutedForeground }]}>{session.hands.length} rounds played</Text>
                {(session.bankrollStart !== undefined || session.bankrollEnd !== undefined) && <Text style={[styles.detailText, { color: colors.mutedForeground }]}>Bankroll ${bankrollStart}{bankrollAdded ? ` + $${bankrollAdded} added` : ''} → ${bankrollEnd}</Text>}
                <Text style={[styles.resultText, { color: bankrollResult >= 0 ? colors.primary : colors.mutedForeground }]}>Session result {bankrollResult >= 0 ? '+' : ''}${bankrollResult}</Text>
-               <Text style={[styles.tableName, { color: colors.foreground }]}>{session.rules?.name ?? 'Vegas 6 Deck'}</Text>
-               <View style={[styles.rulesPill, { borderColor: colors.border }]}>
-                 <Text testID="report-strategy-mode" style={[styles.rulesText, { color: colors.primary }]}>{rulesSummary(session.rules)} · {isIndex ? 'Hi-Lo Index Play' : 'Basic Strategy'}</Text>
-               </View>
             </View>
 
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Mistakes to Review</Text>
@@ -160,9 +155,6 @@ const styles = StyleSheet.create({
   accText: { fontSize: 24, fontFamily: 'Inter_600SemiBold', marginBottom: 8 },
   detailText: { fontSize: 16, fontFamily: 'Inter_400Regular', marginBottom: 4 },
   resultText: { fontSize: 15, fontFamily: 'Inter_700Bold', marginTop: 3 },
-  tableName: { fontSize: 15, fontFamily: 'Inter_600SemiBold', marginTop: 12 },
-  rulesPill: { marginTop: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 },
-  rulesText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   sectionTitle: { fontSize: 20, fontFamily: 'Inter_600SemiBold', marginBottom: 16 },
   emptyState: { padding: 24, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   emptyText: { fontSize: 18, fontFamily: 'Inter_600SemiBold', marginBottom: 4 },
