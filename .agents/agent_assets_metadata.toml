@@ -28,3 +28,24 @@ mtime_ms = 1788673525721
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:b4279030-e79e-4db8-84a9-555b2a738f23/6b0f2e10-0cc2-41e0-b6aa-7dec5a9fe39f/3f7d7393-6e0a-4d0b-aadd-9f49e9c2aab0"
 storage_version_token = "1788673629981550"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "jdvndUI85J-0V-Gx6Fivr"
+uri = "file://artifacts/blackjack-coach/assets/sounds/card-slide.mp3"
+type = "audio"
+title = "casino card slide"
+description = "Generated sound effect: A single crisp casino playing card sliding quickly across green felt and landing softly, dry close-mic foley, no music, no voice, no ambience, very short"
+
+[[outputs]]
+id = "_OaUGyO8peDwDOKHJEcf5"
+uri = "file://artifacts/blackjack-coach/assets/sounds/win-chime.mp3"
+type = "audio"
+title = "casino win chime"
+description = "Generated sound effect: A short elegant casino win notification, one bright refined bell chime with a tiny warm sparkle, premium and restrained, no voice, no music bed"
+
+[[outputs]]
+id = "kHOvGlPrk1u5T3KT7j0qM"
+uri = "file://artifacts/blackjack-coach/assets/sounds/loss-tone.mp3"
+type = "audio"
+title = "casino loss tone"
+description = "Generated sound effect: A short subtle casino loss notification, low muted two-note descending tone, restrained and non-alarming, no voice, no music bed"

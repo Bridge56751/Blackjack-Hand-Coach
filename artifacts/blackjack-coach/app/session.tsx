@@ -4,6 +4,7 @@ import { Feather, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icon
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer } from 'expo-audio';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCoach, Decision } from '@/lib/context';
 import { getBasicStrategy, getActionName, Action, getRecommendation } from '@/lib/strategy';
@@ -19,11 +20,17 @@ const chipRackCurve = [0, 10, 15, 10, 0];
 const uid = () => `${Date.now()}${Math.random().toString(36).slice(2, 7)}`;
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const buzz = () => { if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); };
+const replaySound = (player: ReturnType<typeof useAudioPlayer>) => {
+  void player.seekTo(0).then(() => player.play()).catch(() => undefined);
+};
 
 export default function SessionScreen() {
   const { activeSession, endSession, recordHand, addBankroll } = useCoach();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const cardSound = useAudioPlayer(require('../assets/sounds/card-slide.mp3'));
+  const winSound = useAudioPlayer(require('../assets/sounds/win-chime.mp3'));
+  const lossSound = useAudioPlayer(require('../assets/sounds/loss-tone.mp3'));
   const rules = activeSession?.rules;
   const [bankroll, setBankroll] = useState(1000);
   const [bets, setBets] = useState<number[]>([0, 0, 0]);
@@ -126,12 +133,14 @@ export default function SessionScreen() {
     let dealerCards = initialDealer;
     if (initialDealer[1]) countCards(initialDealer[1]);
     setDealerHoleRevealed(true);
+    replaySound(cardSound);
     const needsDealer = finalHands.some(hand => !hand.surrendered && handTotal(hand.cards).total <= 21 && !isBlackjack(hand));
     while (needsDealer && dealerShouldHit(dealerCards, rules)) {
       await sleep(800);
       const next = draw(shoeNow); shoeNow = next.shoe; dealerCards = [...dealerCards, next.card];
       countCards(next.card);
       setDealer(dealerCards); buzz();
+      replaySound(cardSound);
     }
     const resolved = finalHands.map(hand => ({ ...hand, ...settleHand(hand, dealerCards) }));
     const credit = resolved.reduce((sum, hand) => sum + settleHand(hand, dealerCards).credit, 0);
@@ -150,6 +159,8 @@ export default function SessionScreen() {
     });
     setMessage(net > 0 ? `TABLE UP $${net}` : net < 0 ? 'DEALER TAKES IT' : 'TABLE PUSH');
     await sleep(850);
+    if (net > 0) replaySound(winSound);
+    if (net < 0) replaySound(lossSound);
     setDealerTurn(false);
     setPhase('settled');
   };
@@ -178,6 +189,7 @@ export default function SessionScreen() {
       if (event.kind === 'dealer') setDealer(old => [...old, event.card]);
       else setHands(old => old.map(hand => hand.spot === event.spot ? { ...hand, cards: [...hand.cards, event.card] } : hand));
       if (!(event.kind === 'dealer' && event.hidden)) countCards(event.card);
+      replaySound(cardSound);
       buzz();
     }
     setHands(round.hands); setDealer(round.dealer);
@@ -227,6 +239,7 @@ export default function SessionScreen() {
       const updated = hands.map((hand, i) => i === active ? { ...hand, cards: [...hand.cards, next.card] } : hand);
       countCards(next.card);
       setHands(updated); setShoe(next.shoe);
+      replaySound(cardSound);
       if (handTotal(updated[active].cards).total >= 21) {
         await sleep(300);
         setIsDrawingHit(false);
@@ -238,14 +251,14 @@ export default function SessionScreen() {
       setPhase('dealing'); setBankroll(value => value - current.bet);
       const next = draw(shoe); const updated = hands.map((hand, i) => i === active ? { ...hand, bet: hand.bet * 2, doubled: true, cards: [...hand.cards, next.card] } : hand);
       countCards(next.card);
-      setHands(updated); setShoe(next.shoe); await sleep(350); return advance(updated, next.shoe, active);
+      setHands(updated); setShoe(next.shoe); replaySound(cardSound); await sleep(350); return advance(updated, next.shoe, active);
     }
     if (action === 'P' && bankroll >= current.bet && canSplit(current, rules, handsAtSpot(current))) {
       setPhase('dealing'); setBankroll(value => value - current.bet);
       const aces = current.cards[0].rank === 'A';
       const left: GameHand = { ...current, id: uid(), cards: [current.cards[0]], fromSplit: true, splitAces: aces, doubled: false, surrendered: false };
       const right: GameHand = { ...current, id: uid(), cards: [current.cards[1]], fromSplit: true, splitAces: aces, doubled: false, surrendered: false };
-      let next = draw(shoe); left.cards.push(next.card); await sleep(280); next = draw(next.shoe); right.cards.push(next.card);
+      let next = draw(shoe); left.cards.push(next.card); replaySound(cardSound); await sleep(280); next = draw(next.shoe); right.cards.push(next.card); replaySound(cardSound);
       countCards(left.cards[left.cards.length - 1], right.cards[right.cards.length - 1]);
       const updated = [...hands.slice(0, active), left, right, ...hands.slice(active + 1)];
       setHands(updated); setShoe(next.shoe); await sleep(300);
