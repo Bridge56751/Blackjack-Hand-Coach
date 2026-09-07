@@ -14,7 +14,7 @@ export function BottomNav() {
   const tabs = [
     { name: 'Home', path: '/', icon: 'cards-spade', testID: 'nav-home' },
     { name: 'Table History', path: '/history', icon: 'cards-diamond', testID: 'nav-history' },
-    { name: 'Settings', path: '/settings', icon: 'cards-club', testID: 'nav-settings' },
+    { name: 'Dealer Settings', path: '/settings', icon: 'cards-club', testID: 'nav-settings' },
   ];
 
   return (

@@ -55,7 +55,7 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
+          <Text style={[styles.title, { color: colors.foreground }]}>Dealer Settings</Text>
           <View style={[styles.savedBadge, { backgroundColor: 'rgba(212,175,55,0.12)' }]}>
             <Feather name="check" size={12} color={colors.primary} />
             <Text style={[styles.savedText, { color: colors.primary }]}>Saved automatically</Text>
