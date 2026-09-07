@@ -1,6 +1,5 @@
 import React from 'react';
 import { Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
 import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
@@ -56,9 +55,6 @@ export default function SettingsScreen() {
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.foreground }]}>Dealer Settings</Text>
-          <View style={[styles.savedBadge, { backgroundColor: 'rgba(212,175,55,0.12)' }]}>
-            <Feather name="check" size={12} color={colors.primary} />
-          </View>
         </View>
 
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
@@ -214,7 +210,6 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 20 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   title: { fontFamily: 'Inter_700Bold', fontSize: 31, letterSpacing: -0.7 },
-  savedBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12 },
   subtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, lineHeight: 22 },
   sectionLead: { marginTop: 30, marginBottom: 13 },
   sectionLabel: { fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 1.45, marginBottom: 5 },
