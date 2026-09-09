@@ -16,6 +16,15 @@ const path = require('path');
 const STATIC_ROOT = path.resolve(__dirname, '..', 'static-build');
 const TEMPLATE_PATH = path.resolve(__dirname, 'templates', 'landing-page.html');
 const basePath = (process.env.BASE_PATH || '/').replace(/\/+$/, '');
+function readManifest(platform) {
+  const manifestPath = path.resolve(STATIC_ROOT, platform, 'manifest.json');
+  return fs.existsSync(manifestPath) ? fs.readFileSync(manifestPath, 'utf-8') : null;
+}
+
+const MANIFESTS = Object.freeze({
+  ios: readManifest('ios'),
+  android: readManifest('android'),
+});
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -64,9 +73,9 @@ function toScriptString(value) {
 }
 
 function serveManifest(platform, res) {
-  const manifestPath = path.join(STATIC_ROOT, platform, 'manifest.json');
+  const manifest = MANIFESTS[platform];
 
-  if (!fs.existsSync(manifestPath)) {
+  if (!manifest) {
     res.writeHead(404, { 'content-type': 'application/json' });
     res.end(
       JSON.stringify({ error: `Manifest not found for platform: ${platform}` }),
@@ -74,7 +83,6 @@ function serveManifest(platform, res) {
     return;
   }
 
-  const manifest = fs.readFileSync(manifestPath, 'utf-8');
   res.writeHead(200, {
     'content-type': 'application/json',
     'expo-protocol-version': '1',
@@ -83,10 +91,46 @@ function serveManifest(platform, res) {
   res.end(manifest);
 }
 
+function buildStaticFileIndex(directory, relativeDirectory = '') {
+  const files = new Map();
+  if (!fs.existsSync(directory)) return files;
+
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) continue;
+    const relativePath = path.join(relativeDirectory, entry.name);
+    const absolutePath = path.resolve(directory, entry.name);
+
+    if (entry.isDirectory()) {
+      for (const [key, value] of buildStaticFileIndex(absolutePath, relativePath)) {
+        files.set(key, value);
+      }
+    } else if (entry.isFile()) {
+      files.set(`/${relativePath.split(path.sep).join('/')}`, absolutePath);
+    }
+  }
+
+  return files;
+}
+
+const staticFiles = buildStaticFileIndex(STATIC_ROOT);
+
+function getRequestHost(req) {
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const rawHost = (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost)
+    || req.headers.host;
+  const host = rawHost?.split(',')[0].trim();
+  return host && /^[a-z0-9.-]+(?::\d{1,5})?$/i.test(host) ? host : null;
+}
+
 function serveLandingPage(req, res, landingPageTemplate, appName) {
   const forwardedProto = req.headers['x-forwarded-proto'];
-  const protocol = forwardedProto || 'https';
-  const host = req.headers['x-forwarded-host'] || req.headers['host'];
+  const protocol = forwardedProto === 'http' ? 'http' : 'https';
+  const host = getRequestHost(req);
+  if (!host) {
+    res.writeHead(400);
+    res.end('Invalid Host');
+    return;
+  }
   const baseUrl = `${protocol}://${host}`;
   const expsUrl = `exps://${host}${basePath}`;
 
@@ -101,16 +145,28 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
 }
 
 function serveStaticFile(urlPath, res) {
-  const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
-  const filePath = path.join(STATIC_ROOT, safePath);
-
-  if (!filePath.startsWith(STATIC_ROOT)) {
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(urlPath);
+  } catch {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
+  const segments = decodedPath.split('/');
+  if (
+    decodedPath.includes('\\')
+    || decodedPath.includes('\0')
+    || segments.some(segment => segment === '.' || segment === '..')
+  ) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
   }
 
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+  const normalizedPath = `/${segments.filter(Boolean).join('/')}`;
+  const filePath = staticFiles.get(normalizedPath);
+  if (!filePath) {
     res.writeHead(404);
     res.end('Not Found');
     return;
@@ -127,7 +183,21 @@ const landingPageTemplate = fs.readFileSync(TEMPLATE_PATH, 'utf-8');
 const appName = getAppName();
 
 const server = http.createServer((req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host}`);
+  const requestHost = getRequestHost(req);
+  if (!requestHost) {
+    res.writeHead(400);
+    res.end('Invalid Host');
+    return;
+  }
+
+  let url;
+  try {
+    url = new URL(req.url || '/', `http://${requestHost}`);
+  } catch {
+    res.writeHead(400);
+    res.end('Bad Request');
+    return;
+  }
   let pathname = url.pathname;
 
   if (basePath && pathname.startsWith(basePath)) {
@@ -146,6 +216,10 @@ const server = http.createServer((req, res) => {
   }
 
   serveStaticFile(pathname, res);
+});
+
+server.on('clientError', (_error, socket) => {
+  if (socket.writable) socket.end('HTTP/1.1 400 Bad Request\r\nConnection: close\r\n\r\n');
 });
 
 const port = parseInt(process.env.PORT || '3000', 10);
