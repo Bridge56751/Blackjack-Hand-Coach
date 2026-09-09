@@ -1,5 +1,5 @@
 import React from 'react';
-import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
 import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
@@ -16,6 +16,12 @@ const presetDescriptions: Record<string, string> = {
   'Double Deck': 'Two decks · dealer stands on soft 17 · late surrender',
   'Single Deck': 'One deck · dealer stands on soft 17 · no surrender',
 };
+
+const supportLegalLinks = [
+  { label: 'Support', url: 'https://howtoplayblackjack.work/support', testID: 'settings-support-link' },
+  { label: 'Privacy Policy', url: 'https://howtoplayblackjack.work/privacy', testID: 'settings-privacy-link' },
+  { label: 'Terms of Use', url: 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/', testID: 'settings-terms-link' },
+] as const;
 
 export default function SettingsScreen() {
   const colors = useColors();
@@ -47,6 +53,19 @@ export default function SettingsScreen() {
       coachEnabled: current.coachEnabled,
       showSeatPrompt: current.showSeatPrompt,
     }));
+  };
+
+  const openExternalLink = async (label: string, url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        throw new Error(`Unsupported URL: ${url}`);
+      }
+      await Linking.openURL(url);
+    } catch (linkError) {
+      console.warn(`Unable to open ${label}`, linkError);
+      Alert.alert('Unable to open link', `Please try opening ${label} again.`);
+    }
   };
 
   if (!preferredRulesReady) {
@@ -220,6 +239,28 @@ export default function SettingsScreen() {
             last
           />
         </RuleSection>
+
+        <SectionLead label="SUPPORT & LEGAL" title="Help and policies" colors={colors} />
+        <View style={[styles.linkGroup, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          {supportLegalLinks.map((link, index) => (
+            <TouchableOpacity
+              key={link.label}
+              testID={link.testID}
+              accessibilityRole="link"
+              accessibilityLabel={`Open ${link.label} in your browser`}
+              accessibilityHint="Opens an external website"
+              activeOpacity={0.65}
+              onPress={() => void openExternalLink(link.label, link.url)}
+              style={[
+                styles.linkRow,
+                index < supportLegalLinks.length - 1 && { borderBottomColor: colors.border, borderBottomWidth: StyleSheet.hairlineWidth },
+              ]}
+            >
+              <Text style={[styles.linkLabel, { color: colors.foreground }]}>{link.label}</Text>
+              <Feather name="external-link" size={18} color={colors.primary} />
+            </TouchableOpacity>
+          ))}
+        </View>
       </ScrollView>
 
       <BottomNav />
@@ -302,4 +343,7 @@ const styles = StyleSheet.create({
   choiceDetail: { fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 17, marginTop: 2 },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
+  linkGroup: { borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
+  linkRow: { minHeight: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  linkLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, lineHeight: 19 },
 });
