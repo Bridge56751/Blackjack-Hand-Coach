@@ -44,6 +44,12 @@ const androidApiKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 let configured = false;
 let configurationError: string | null = null;
 
+async function invalidateCustomerInfoCache() {
+  if (Platform.OS !== 'web') {
+    await Purchases.invalidateCustomerInfoCache();
+  }
+}
+
 function apiKeyForRuntime() {
   if (__DEV__) return testApiKey;
   if (Platform.OS === 'web' || Constants.executionEnvironment === 'storeClient') return undefined;
@@ -120,7 +126,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const fetchAuthoritativeCustomerInfo = useCallback(async () => {
-    if (!__DEV__) await Purchases.invalidateCustomerInfoCache();
+    if (!__DEV__) await invalidateCustomerInfoCache();
     const info = await Purchases.getCustomerInfo();
     if (!acceptCustomerInfo(info)) {
       throw new Error('RevenueCat returned an out-of-order customer record.');
@@ -190,7 +196,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
             setExpiredThroughRequestDate(previous => Math.max(previous, requestedAt));
           }
         }
-        void Purchases.invalidateCustomerInfoCache()
+        void invalidateCustomerInfoCache()
           .catch(() => undefined)
           .then(() => queryClient.invalidateQueries({ queryKey: ['revenuecat', 'customer'] }));
       }
@@ -258,7 +264,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     purchase: purchaseMutation.mutateAsync,
     restore: restoreMutation.mutateAsync,
     refresh: async () => {
-      await Purchases.invalidateCustomerInfoCache();
+      await invalidateCustomerInfoCache();
       await Promise.all([customerQuery.refetch(), offeringsQuery.refetch()]);
     },
   }), [
