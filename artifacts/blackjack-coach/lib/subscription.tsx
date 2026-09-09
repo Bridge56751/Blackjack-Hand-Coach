@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { Platform } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import Purchases, {
   CustomerInfo,
@@ -11,6 +11,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { HighRollerPaywall } from '@/components/HighRollerPaywall';
 
 export const HIGH_ROLLER_ENTITLEMENT = 'com_howtoplayblackjack_app_High_Roller';
+
+function hasHighRollerEntitlement(info: CustomerInfo | undefined): boolean {
+  return Boolean(info?.entitlements.active[HIGH_ROLLER_ENTITLEMENT]);
+}
 
 const testApiKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const iosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
@@ -92,10 +96,24 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     };
   }, [queryClient]);
 
+  useEffect(() => {
+    if (!configured) return;
+    const subscription = AppState.addEventListener('change', state => {
+      if (state === 'active') {
+        void queryClient.invalidateQueries({ queryKey: ['revenuecat', 'customer'] });
+      }
+    });
+    return () => subscription.remove();
+  }, [queryClient]);
+
   const purchaseMutation = useMutation({
     mutationFn: async (pkg: PurchasesPackage) => {
       setActionError(null);
       const result = await Purchases.purchasePackage(pkg);
+      queryClient.setQueryData(['revenuecat', 'customer'], result.customerInfo);
+      if (!hasHighRollerEntitlement(result.customerInfo)) {
+        throw new Error('Purchase completed, but High Roller access was not activated. Restore purchases or contact support.');
+      }
       return result.customerInfo;
     },
     onSuccess: info => {
@@ -111,14 +129,14 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     mutationFn: () => Purchases.restorePurchases(),
     onSuccess: info => {
       queryClient.setQueryData(['revenuecat', 'customer'], info);
-      if (info.entitlements.active[HIGH_ROLLER_ENTITLEMENT]) setPaywallVisible(false);
+      if (hasHighRollerEntitlement(info)) setPaywallVisible(false);
       else setActionError('No active High Roller purchase was found.');
     },
     onError: error => setActionError(error instanceof Error ? error.message : 'Purchases could not be restored.'),
   });
 
   const value = useMemo<SubscriptionContextValue>(() => ({
-    isHighRoller: !!customerQuery.data?.entitlements.active[HIGH_ROLLER_ENTITLEMENT],
+    isHighRoller: hasHighRollerEntitlement(customerQuery.data),
     isLoading: configured && (customerQuery.isLoading || offeringsQuery.isLoading),
     isPurchasing: purchaseMutation.isPending,
     isRestoring: restoreMutation.isPending,

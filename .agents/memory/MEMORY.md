@@ -1,3 +1,4 @@
 - [Blackjack table visual standard](blackjack-table-visual-standard.md) — Keep gameplay cinematic and physically dimensional; flat diagrammatic casino layouts are not acceptable.
 - [Count-index grading scope](blackjack-count-index-grading.md) — Use the sourced 4/6/8-deck American-peek profile only; never extrapolate its indices to 1/2 decks.
 - [RevenueCat project isolation](revenuecat-project-isolation.md) — Connected API tokens are project-scoped; create a new RevenueCat project before attaching its Replit connection.
+- [Subscription identity model](subscription-identity-model.md) — High Roller follows the Apple/Google store account without an app login; RevenueCat alone determines access.
