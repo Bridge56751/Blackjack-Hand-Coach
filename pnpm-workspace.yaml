@@ -33,6 +33,11 @@ minimumReleaseAgeExclude:
   # this setting guards against does not apply to our own packages.
   - '@replit/*'
   - stripe-replit-sync
+  # SDK 57 patch releases required by Expo Go compatibility checks.
+  - '@expo/*'
+  - babel-preset-expo
+  - expo
+  - 'expo-*'
 
 packages:
   - artifacts/*
