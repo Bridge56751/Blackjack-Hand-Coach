@@ -4,7 +4,7 @@ import { Feather } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
-import { DEFAULT_TABLE_RULES, DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
+import { DEFAULT_TABLE_RULES, DoubleRule, getHiLoIndexSupport, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
 import { useColors } from '@/hooks/useColors';
 
 const deckOptions: TableRules['decks'][] = [1, 2, 4, 6, 8];
@@ -12,7 +12,7 @@ const deckOptions: TableRules['decks'][] = [1, 2, 4, 6, 8];
 const presetDescriptions: Record<string, string> = {
   'Vegas 6 Deck': 'Six decks · dealer stands on soft 17 · late surrender',
   'Strip 6 Deck': 'Six decks · dealer hits soft 17 · late surrender',
-  'Double Deck': 'Two decks · dealer stands on soft 17 · late surrender',
+  'Double Deck': 'Two decks · S17 · NDAS · no surrender',
   'Single Deck': 'One deck · dealer stands on soft 17 · no surrender',
 };
 
@@ -26,6 +26,7 @@ export default function TableSetupScreen() {
   const [rulesReady, setRulesReady] = useState(false);
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const actionHeight = 76 + Math.max(insets.bottom, Platform.OS === 'web' ? 34 : 12);
+  const indexSupport = getHiLoIndexSupport(rules);
 
   useEffect(() => {
     if (!preferredRulesReady || rulesReady) return;
@@ -43,10 +44,7 @@ export default function TableSetupScreen() {
   const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) =>
     setRules(current => {
       const next = { ...current, name: 'Custom Table', [key]: value };
-      if (key === 'decks' && (value === 1 || value === 2) && next.accuracyMode === 'hilo-index') {
-        next.accuracyMode = 'basic';
-      }
-      return next;
+      return normalizeTableRules(next);
     });
   const selectPreset = (preset: TableRules) => setRules(normalizeTableRules({
     ...preset,
@@ -218,13 +216,15 @@ export default function TableSetupScreen() {
           />
           <RuleChoice
             label="Hi-Lo Index Play"
-            detail="Count-adjusted H17/S17 multideck deviations, including the insurance index."
+            detail={indexSupport.profile === 'double-deck'
+              ? 'Verified Schlesinger Nifty 50 double-deck deviations with floored indices.'
+              : 'Count-adjusted H17/S17 multideck deviations, including insurance.'}
             selected={rules.accuracyMode === 'hilo-index'}
             onPress={() => update('accuracyMode', 'hilo-index')}
             testID="accuracy-hilo-index"
             colors={colors}
-            disabled={rules.decks === 1 || rules.decks === 2}
-            disabledDetail="Hi-Lo index mode requires a 4, 6, or 8-deck shoe."
+            disabled={!indexSupport.supported}
+            disabledDetail={indexSupport.explanation}
             last
           />
         </RuleSection>
@@ -232,7 +232,9 @@ export default function TableSetupScreen() {
         <RuleSection title="Advanced · Strategy Basis" description="How Blackjack Coach builds your advice." colors={colors}>
           <Text style={[styles.basisText, { color: colors.mutedForeground }]}>
             {rules.accuracyMode === 'hilo-index'
-              ? 'Coaching grades against total-dependent basic strategy supplemented by Blackjack Apprenticeship\'s H17/S17 multideck deviation charts. '
+              ? indexSupport.profile === 'double-deck'
+                ? 'Coaching grades against rule-correct basic strategy supplemented by Don Schlesinger’s complete Table 31.2 Nifty 50 for 2D S17, NDAS, no surrender, using floored indices. '
+                : 'Coaching grades against total-dependent basic strategy supplemented by Blackjack Apprenticeship\'s H17/S17 multideck deviation charts. '
               : 'Coaching grades strictly against total-dependent basic strategy. '
             }
             It accounts for the 3:2 payout, dealer peek, up to four split hands, and one card on split aces. Decks, dealer behavior, doubling, and surrender adjust the chart. Resplitting aces is saved to match your table, but does not change the first-decision chart.

@@ -10,7 +10,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate:strategy": "node scripts/validate-strategy.js",
     "validate:game": "node --experimental-strip-types scripts/validate-game.ts",
-    "validate:hilo-index": "node --experimental-strip-types scripts/validate-hilo-index.ts"
+    "validate:hilo-index": "node --experimental-strip-types scripts/validate-hilo-index.ts",
+    "validate:high-roller": "node --experimental-strip-types scripts/validate-high-roller-access.ts"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

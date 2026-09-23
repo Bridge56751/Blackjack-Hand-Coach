@@ -1,5 +1,11 @@
-import { DEFAULT_TABLE_RULES, normalizeTableRules } from '../lib/rules.ts';
-import { FULL_HILO_INDEX_RULES, FULL_HILO_INDEX_PROFILE_ID, getRecommendation } from '../lib/strategy.ts';
+import { DEFAULT_TABLE_RULES, getHiLoIndexSupport, normalizeTableRules } from '../lib/rules.ts';
+import {
+  DOUBLE_DECK_HILO_INDEX_PROFILE_ID,
+  DOUBLE_DECK_HILO_INDEX_RULES,
+  FULL_HILO_INDEX_RULES,
+  FULL_HILO_INDEX_PROFILE_ID,
+  getRecommendation,
+} from '../lib/strategy.ts';
 
 const ok = (value: boolean, name: string) => { if (!value) throw new Error(`Hi-Lo index validation failed: ${name}`); };
 const cardsFor = (kind: string, hand: string): string[] => {
@@ -59,4 +65,122 @@ ok(normalizeTableRules({ decks: 2, accuracyMode: 'hilo-index' }).accuracyMode ==
 ok(normalizeTableRules({ name: 'legacy' }).accuracyMode === 'basic', 'legacy rules default to basic');
 ok(getRecommendation({ playerCards: [], dealerCard: 'A', insurance: true, runningCount: 9, unseenCards: 52 }).action === 'N', 'basic declines insurance');
 ok(FULL_HILO_INDEX_PROFILE_ID.includes('v1'), 'versioned profile id');
-console.log('Validated public multideck Hi-Lo deviation boundaries and fallbacks.');
+
+const doubleDeckRules = {
+  ...DEFAULT_TABLE_RULES,
+  decks: 2 as const,
+  dealerHitsSoft17: false,
+  doubleAfterSplit: false,
+  doubleRule: 'any-two' as const,
+  surrender: 'none' as const,
+  accuracyMode: 'hilo-index' as const,
+};
+
+ok(DOUBLE_DECK_HILO_INDEX_RULES.length === 49, '49 playing-decision rows plus insurance');
+for (const rule of DOUBLE_DECK_HILO_INDEX_RULES) {
+  for (const [offset, applies] of [[-0.01, false], [0, true], [0.99, true], [1, true]] as const) {
+    const rawTrueCount = rule.index + offset;
+    const result = getRecommendation({
+      playerCards: cardsFor(rule.kind, rule.hand),
+      dealerCard: rule.dealer,
+      tableRules: doubleDeckRules,
+      runningCount: rawTrueCount,
+      unseenCards: 52,
+      canDouble: true,
+      canSplit: true,
+      canSurrender: false,
+    });
+    ok(result.indexApplied === applies, `2D floored ${rule.kind} ${rule.hand} v ${rule.dealer} at raw TC ${rawTrueCount}`);
+    ok(result.profileId === DOUBLE_DECK_HILO_INDEX_PROFILE_ID, `2D provenance ${rule.hand} v ${rule.dealer}`);
+    if (result.indexApplied) {
+      ok(result.action === rule.action, `2D action ${rule.hand} v ${rule.dealer}`);
+      ok(['H', 'S', 'D', 'P'].includes(result.action), `2D supported action legal ${rule.hand} v ${rule.dealer}`);
+    } else {
+      const independentlyExpectedBelow =
+        rule.action === 'P' ? (rule.hand === 'T,T' ? 'S' : 'H')
+        : rule.kind === 'soft' && rule.action === 'D' && Number(rule.hand.split(',')[1]) >= 7 ? 'S'
+        : 'H';
+      ok(result.action === independentlyExpectedBelow, `2D opposite-side play ${rule.hand} v ${rule.dealer}`);
+    }
+  }
+}
+
+const negativeFloor = getRecommendation({
+  playerCards: ['T', '2'], dealerCard: '5', tableRules: doubleDeckRules,
+  runningCount: -0.01, unseenCards: 52, canDouble: true, canSplit: true, canSurrender: false,
+});
+ok(negativeFloor.indexApplied && negativeFloor.threshold === -1, 'negative fractional TC floors down to -1');
+ok(negativeFloor.thresholdLabel === 'floored TC ≥ -1', 'floored threshold is reported');
+ok(getRecommendation({
+  playerCards: ['T', '2'], dealerCard: '5', tableRules: doubleDeckRules,
+  runningCount: -1.01, unseenCards: 52, canDouble: true, canSplit: true, canSurrender: false,
+}).indexApplied === false, 'negative flooring below boundary');
+ok(getRecommendation({
+  playerCards: [], dealerCard: 'A', insurance: true, tableRules: doubleDeckRules,
+  runningCount: 3.99, unseenCards: 52,
+}).action === 'I', '2D insurance uses floored TC at +3');
+ok(getRecommendation({
+  playerCards: [], dealerCard: 'A', insurance: true, tableRules: doubleDeckRules,
+  runningCount: 2.99, unseenCards: 52,
+}).action === 'N', '2D insurance below floored +3');
+ok(getRecommendation({
+  playerCards: ['4', '4'], dealerCard: '6', tableRules: doubleDeckRules,
+  runningCount: 8, unseenCards: 52, canDouble: false, canSplit: true, canSurrender: false,
+}).action !== 'D', '2D illegal double falls back to rule-correct basic strategy');
+ok(getRecommendation({
+  playerCards: ['T', 'T'], dealerCard: '5', tableRules: doubleDeckRules,
+  runningCount: 8, unseenCards: 52, canDouble: true, canSplit: false, canSurrender: false,
+}).action === 'S', '2D illegal ten split uses explicit stand fallback');
+
+const expectedOppositeSideCases = [
+  { cards: ['T', '2'], dealer: '4', index: 1, expected: 'H', name: '12v4 below +1 hits' },
+  { cards: ['T', '3'], dealer: '2', index: 0, expected: 'H', name: '13v2 below 0 hits' },
+  { cards: ['6', '5'], dealer: 'T', index: -5, expected: 'H', name: '11vT below -5 hits' },
+  { cards: ['6', '6'], dealer: '2', index: 1, expected: 'H', name: '66v2 below +1 hits' },
+  { cards: ['A', '7'], dealer: 'A', index: -1, expected: 'H', name: 'A7vA below -1 hits' },
+  { cards: ['A', '8'], dealer: '6', index: 1, expected: 'S', name: 'A8v6 below +1 stands' },
+  { cards: ['A', '3'], dealer: '4', index: 1, expected: 'H', name: 'A3v4 below +1 hits' },
+  { cards: ['T', 'T'], dealer: '6', index: 5, expected: 'S', name: 'TTv6 below +5 stands' },
+  { cards: ['4', '4'], dealer: '5', index: 4, expected: 'H', name: '44v5 below +4 hits' },
+] as const;
+for (const example of expectedOppositeSideCases) {
+  const result = getRecommendation({
+    playerCards: [...example.cards], dealerCard: example.dealer, tableRules: doubleDeckRules,
+    runningCount: example.index - 0.01, unseenCards: 52,
+    canDouble: true, canSplit: true, canSurrender: false,
+  });
+  ok(result.action === example.expected && !result.indexApplied, example.name);
+}
+
+ok(getRecommendation({
+  playerCards: ['2', '4', '5'], dealerCard: 'T', tableRules: doubleDeckRules,
+  runningCount: -5, unseenCards: 52, canDouble: false, canSplit: false, canSurrender: false,
+}).action === 'H', 'multi-card hard 11 cannot double and uses explicit hit fallback');
+ok(getRecommendation({
+  playerCards: ['A', '2', '6'], dealerCard: '6', tableRules: doubleDeckRules,
+  runningCount: 2, unseenCards: 52, canDouble: false, canSplit: false, canSurrender: false,
+}).action === 'S', 'multi-card soft 19 cannot double and uses explicit stand fallback');
+
+for (const incompatible of [
+  { dealerHitsSoft17: true },
+  { doubleAfterSplit: true },
+  { surrender: 'late' as const },
+  { doubleRule: 'nine-eleven' as const },
+]) {
+  const rules = { ...doubleDeckRules, ...incompatible };
+  ok(normalizeTableRules(rules).accuracyMode === 'basic', `unsupported 2D rules normalize: ${JSON.stringify(incompatible)}`);
+  ok(getRecommendation({
+    playerCards: ['T', '6'], dealerCard: 'T', tableRules: rules,
+    runningCount: 20, unseenCards: 52, canDouble: true, canSplit: true, canSurrender: true,
+  }).profileId === null, `unsupported 2D rules use basic: ${JSON.stringify(incompatible)}`);
+}
+ok(normalizeTableRules(doubleDeckRules).accuracyMode === 'hilo-index', 'exact 2D profile remains selected');
+ok(getHiLoIndexSupport(doubleDeckRules).profile === 'double-deck', 'shared helper selects 2D profile');
+ok(getHiLoIndexSupport({ ...doubleDeckRules, decks: 1 }).supported === false, 'single deck unsupported');
+ok(getHiLoIndexSupport({ ...doubleDeckRules, decks: 6 }).profile === 'multideck', 'existing multideck profile preserved');
+ok(getRecommendation({
+  playerCards: ['T', '6'], dealerCard: 'T', tableRules: { ...doubleDeckRules, decks: 6 },
+  runningCount: 0.01, unseenCards: 52, canDouble: true, canSplit: true, canSurrender: false,
+}).profileId === FULL_HILO_INDEX_PROFILE_ID, 'multideck provenance unchanged');
+
+console.log('Validated public multideck and verified Table 31.2 double-deck Hi-Lo boundaries and fallbacks.');

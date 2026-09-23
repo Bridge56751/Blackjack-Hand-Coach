@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCoach } from '@/lib/context';
-import { DoubleRule, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
+import { DoubleRule, getHiLoIndexSupport, normalizeTableRules, SurrenderRule, TABLE_PRESETS, TableRules } from '@/lib/rules';
 import { useColors } from '@/hooks/useColors';
 import { BottomNav } from '@/components/BottomNav';
 import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ const deckOptions: TableRules['decks'][] = [1, 2, 4, 6, 8];
 const presetDescriptions: Record<string, string> = {
   'Vegas 6 Deck': 'Six decks · dealer stands on soft 17 · late surrender',
   'Strip 6 Deck': 'Six decks · dealer hits soft 17 · late surrender',
-  'Double Deck': 'Two decks · dealer stands on soft 17 · late surrender',
+  'Double Deck': 'Two decks · S17 · NDAS · no surrender',
   'Single Deck': 'One deck · dealer stands on soft 17 · no surrender',
 };
 
@@ -30,6 +30,7 @@ export default function SettingsScreen() {
   const { isHighRoller, isLoading, offering, openPaywall, restore, isRestoring, error } = useSubscription();
   const webTopInset = Platform.OS === 'web' ? 67 : 0;
   const webBottomInset = Platform.OS === 'web' ? 34 : 0;
+  const indexSupport = getHiLoIndexSupport(preferredRules);
 
   const update = <K extends keyof TableRules>(key: K, value: TableRules[K]) => {
     if (!isHighRoller && (key === 'cardCountingEnabled' || (key === 'accuracyMode' && value === 'hilo-index'))) {
@@ -38,9 +39,6 @@ export default function SettingsScreen() {
     }
     updatePreferredRules(current => {
       const next = { ...current, name: 'Custom Table', [key]: value };
-      if (key === 'decks' && (value === 1 || value === 2) && next.accuracyMode === 'hilo-index') {
-        next.accuracyMode = 'basic';
-      }
       return normalizeTableRules(next);
     });
   };
@@ -228,13 +226,15 @@ export default function SettingsScreen() {
           />
           <RuleChoice
             label="Hi-Lo Index Play"
-            detail="Count-adjusted multideck deviations."
+            detail={indexSupport.profile === 'double-deck'
+              ? 'Verified Schlesinger Nifty 50 double-deck deviations with floored indices.'
+              : 'Count-adjusted Blackjack Apprenticeship multideck deviations.'}
             selected={preferredRules.accuracyMode === 'hilo-index'}
             onPress={() => update('accuracyMode', 'hilo-index')}
             testID="settings-accuracy-hilo"
             colors={colors}
-            disabled={preferredRules.decks === 1 || preferredRules.decks === 2}
-            disabledDetail="Hi-Lo index mode requires a 4, 6, or 8-deck shoe."
+            disabled={!indexSupport.supported}
+            disabledDetail={indexSupport.explanation}
             locked={!isHighRoller}
             last
           />

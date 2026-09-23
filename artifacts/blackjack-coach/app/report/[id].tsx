@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Platform, useWindowDimensions } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCoach, getSessionStats } from '@/lib/context';
-import { getActionName } from '@/lib/strategy';
+import { DOUBLE_DECK_HILO_INDEX_PROFILE_ID, FULL_HILO_INDEX_PROFILE_ID, getActionName } from '@/lib/strategy';
 import { useColors } from '@/hooks/useColors';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -153,6 +153,16 @@ export default function ReportScreen() {
             {isIndex && item.gradingMode === 'hilo-index' && (
               <View style={styles.indexContext}>
                 <Text style={[styles.indexContextText, { color: colors.mutedForeground }]}>RC: {item.runningCount} · TC: {item.trueCount?.toFixed(1)}</Text>
+                {!!item.profileId && (
+                  <Text style={[styles.indexContextSource, { color: colors.mutedForeground }]}>
+                    {item.profileId === DOUBLE_DECK_HILO_INDEX_PROFILE_ID
+                      ? 'SOURCE · Schlesinger Table 31.2 Nifty 50'
+                      : item.profileId === FULL_HILO_INDEX_PROFILE_ID
+                        ? 'SOURCE · Blackjack Apprenticeship multideck charts'
+                        : `SOURCE · ${item.profileId}`}
+                    {item.thresholdLabel ? ` · ${item.thresholdLabel}` : ''}
+                  </Text>
+                )}
                 {item.explanation && <Text style={[styles.indexContextDesc, { color: colors.mutedForeground }]}>{item.explanation}</Text>}
                 {item.basicAction && item.basicAction !== item.correct && (
                   <Text style={[styles.indexContextDesc, { color: colors.mutedForeground, marginTop: 4 }]}>Book play would be {getActionName(item.basicAction)}</Text>
@@ -358,5 +368,6 @@ const styles = StyleSheet.create({
   feedbackValue: { fontSize: 16, fontFamily: 'Inter_700Bold' },
   indexContext: { marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
   indexContextText: { fontSize: 12, fontFamily: 'Inter_700Bold', letterSpacing: 0.5, marginBottom: 4 },
+  indexContextSource: { fontSize: 10, fontFamily: 'Inter_700Bold', letterSpacing: 0.5, marginBottom: 4 },
   indexContextDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', lineHeight: 18 },
 });

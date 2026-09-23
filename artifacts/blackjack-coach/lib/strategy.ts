@@ -1,5 +1,5 @@
 import fixture from './strategy-fixtures.json' with { type: 'json' };
-import { DEFAULT_TABLE_RULES, normalizeTableRules } from './rules.ts';
+import { DEFAULT_TABLE_RULES, getHiLoIndexSupport, normalizeTableRules } from './rules.ts';
 import type { TableRules } from './rules.ts';
 
 export type Action = 'H' | 'S' | 'D' | 'P' | 'R' | 'I' | 'N';
@@ -22,9 +22,29 @@ export const FULL_HILO_INDEX_PROFILE = {
   unsupported: '1- and 2-deck count indices are not supported; callers must disable hilo-index for those games.',
 } as const;
 
+export const DOUBLE_DECK_HILO_INDEX_PROFILE_ID = 'schlesinger-nifty-50-52-104-s17-ndas-v1';
+export const DOUBLE_DECK_HILO_INDEX_PROFILE = {
+  id: DOUBLE_DECK_HILO_INDEX_PROFILE_ID,
+  version: 1,
+  source: 'Don Schlesinger, “Master Class: The Hi-Lo Card Counting System,” Casino Player, June 16, 2023, Table 31.2',
+  application: 'Nifty 50, 52/104 penetration, S17, NDAS, play-all 1–6',
+  indexGeneration: 'Two-deck indices generated at 62/104 penetration; indices are floored',
+  rules: '2 decks, S17, NDAS, no surrender, double on any first two cards',
+} as const;
+
 type IndexDirection = 'above' | 'at-or-above' | 'below' | 'at-or-below';
 type HandKind = 'hard' | 'soft' | 'pair';
-export type HiLoIndexRule = { kind: HandKind; hand: string; dealer: string; action: Action; index: number; direction?: IndexDirection; surrenderContext?: 'none' | 'late' };
+export type HiLoIndexRule = {
+  kind: HandKind;
+  hand: string;
+  dealer: string;
+  action: Action;
+  index: number;
+  direction?: IndexDirection;
+  surrenderContext?: 'none' | 'late';
+  /** Published play on the other side of a double-deck departure index. */
+  belowAction?: Action;
+};
 
 // The source charts define 0+ as a positive running count and 0- as a negative
 // running count. Explicit strict directions preserve those boundaries without
@@ -49,6 +69,80 @@ export const FULL_HILO_INDEX_RULES: Record<'h17' | 's17', HiLoIndexRule[]> = {
     { kind: 'hard', hand: '16', dealer: '8', action: 'R', index: 4, surrenderContext: 'late' }, { kind: 'hard', hand: '16', dealer: '9', action: 'H', index: -1, direction: 'at-or-below', surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: '9', action: 'R', index: 2, surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: 'T', action: 'H', index: 0, direction: 'below', surrenderContext: 'late' }, { kind: 'hard', hand: '15', dealer: 'A', action: 'H', index: -1, direction: 'below', surrenderContext: 'late' },
   ],
 };
+
+function doubleDeckBelowAction(rule: HiLoIndexRule): Action {
+  // Table 31.2 lists departure plays, so using generic basic strategy on the
+  // other side is unsafe (many cells' ordinary basic play equals the listed
+  // action). Encode the opposite-side play for every class in this table.
+  if (rule.kind === 'hard') return 'H';
+  if (rule.kind === 'pair') {
+    if (rule.hand === 'T,T') return 'S';
+    if (rule.hand === '6,6' || rule.hand === '4,4') return 'H';
+    throw new Error(`Unhandled double-deck pair departure: ${rule.hand}`);
+  }
+  if (rule.action === 'S') return 'H'; // A,7 v A
+  const softTotal = 11 + Number(rule.hand.split(',')[1]);
+  return softTotal >= 18 ? 'S' : 'H';
+}
+
+/** Complete 50-row Table 31.2 transcription (insurance is handled separately). */
+const DOUBLE_DECK_HILO_INDEX_TRANSCRIPTION: HiLoIndexRule[] = [
+  { kind: 'hard', hand: '16', dealer: 'T', action: 'S', index: 1 },
+  { kind: 'hard', hand: '12', dealer: '3', action: 'S', index: 3 },
+  { kind: 'hard', hand: '15', dealer: 'T', action: 'S', index: 4 },
+  { kind: 'pair', hand: 'T,T', dealer: '5', action: 'P', index: 5 },
+  { kind: 'pair', hand: 'T,T', dealer: '6', action: 'P', index: 5 },
+  { kind: 'hard', hand: '12', dealer: '4', action: 'S', index: 1 },
+  { kind: 'hard', hand: '12', dealer: '2', action: 'S', index: 5 },
+  { kind: 'hard', hand: '8', dealer: '6', action: 'D', index: 2 },
+  { kind: 'hard', hand: '13', dealer: '2', action: 'S', index: 0 },
+  { kind: 'hard', hand: '9', dealer: '7', action: 'D', index: 3 },
+  { kind: 'hard', hand: '10', dealer: 'A', action: 'D', index: 3 },
+  { kind: 'hard', hand: '11', dealer: 'A', action: 'D', index: 0 },
+  { kind: 'hard', hand: '8', dealer: '5', action: 'D', index: 4 },
+  { kind: 'soft', hand: 'A,8', dealer: '6', action: 'D', index: 1 },
+  { kind: 'hard', hand: '12', dealer: '6', action: 'S', index: 0 },
+  { kind: 'soft', hand: 'A,8', dealer: '5', action: 'D', index: 1 },
+  { kind: 'hard', hand: '12', dealer: '5', action: 'S', index: -1 },
+  { kind: 'hard', hand: '16', dealer: '9', action: 'S', index: 5 },
+  { kind: 'pair', hand: 'T,T', dealer: '4', action: 'P', index: 7 },
+  { kind: 'hard', hand: '13', dealer: '3', action: 'S', index: -1 },
+  { kind: 'hard', hand: '9', dealer: '2', action: 'D', index: 1 },
+  { kind: 'hard', hand: '10', dealer: 'T', action: 'D', index: 7 },
+  { kind: 'soft', hand: 'A,3', dealer: '4', action: 'D', index: 1 },
+  { kind: 'pair', hand: '4,4', dealer: '6', action: 'D', index: 2 },
+  { kind: 'hard', hand: '13', dealer: '4', action: 'S', index: -3 },
+  { kind: 'soft', hand: 'A,8', dealer: '4', action: 'D', index: 3 },
+  { kind: 'hard', hand: '14', dealer: '2', action: 'S', index: -3 },
+  { kind: 'soft', hand: 'A,7', dealer: '2', action: 'D', index: 0 },
+  { kind: 'hard', hand: '10', dealer: '9', action: 'D', index: -2 },
+  { kind: 'soft', hand: 'A,2', dealer: '4', action: 'D', index: 3 },
+  { kind: 'hard', hand: '9', dealer: '3', action: 'D', index: -1 },
+  { kind: 'hard', hand: '11', dealer: 'T', action: 'D', index: -5 },
+  { kind: 'pair', hand: '4,4', dealer: '5', action: 'D', index: 4 },
+  { kind: 'soft', hand: 'A,9', dealer: '6', action: 'D', index: 5 },
+  { kind: 'soft', hand: 'A,9', dealer: '5', action: 'D', index: 5 },
+  { kind: 'hard', hand: '8', dealer: '4', action: 'D', index: 6 },
+  { kind: 'hard', hand: '15', dealer: '9', action: 'S', index: 8 },
+  { kind: 'hard', hand: '16', dealer: 'A', action: 'S', index: 8 },
+  { kind: 'pair', hand: 'T,T', dealer: '3', action: 'P', index: 9 },
+  { kind: 'hard', hand: '13', dealer: '5', action: 'S', index: -4 },
+  { kind: 'hard', hand: '14', dealer: '3', action: 'S', index: -5 },
+  { kind: 'soft', hand: 'A,8', dealer: '3', action: 'D', index: 5 },
+  { kind: 'soft', hand: 'A,2', dealer: '5', action: 'D', index: -1 },
+  { kind: 'hard', hand: '13', dealer: '6', action: 'S', index: -4 },
+  { kind: 'hard', hand: '16', dealer: '8', action: 'S', index: 9 },
+  { kind: 'pair', hand: '6,6', dealer: '2', action: 'P', index: 1 },
+  { kind: 'hard', hand: '9', dealer: '4', action: 'D', index: -3 },
+  { kind: 'hard', hand: '15', dealer: '2', action: 'S', index: -6 },
+  { kind: 'soft', hand: 'A,7', dealer: 'A', action: 'S', index: -1 },
+];
+
+export const DOUBLE_DECK_HILO_INDEX_RULES: HiLoIndexRule[] =
+  DOUBLE_DECK_HILO_INDEX_TRANSCRIPTION.map(rule => ({
+    ...rule,
+    belowAction: doubleDeckBelowAction(rule),
+  }));
 
 const strategies = fixture.strategies as Record<string, Strategy>;
 
@@ -235,30 +329,37 @@ export function getRecommendation(input: RecommendationInput): Recommendation {
   if (rules.accuracyMode !== 'hilo-index') {
     return { ...base, action: basicAction, explanation: input.insurance ? 'Basic strategy declines insurance.' : 'Basic strategy.' };
   }
-  if (!FULL_HILO_INDEX_PROFILE.supportedDecks.includes(rules.decks as 4 | 6 | 8)) {
-    return { ...base, action: basicAction, explanation: 'Hi-Lo index profile supports American-peek 4-, 6-, and 8-deck games only; basic strategy used.' };
-  }
+  const support = getHiLoIndexSupport(rules);
+  if (!support.supported) return { ...base, action: basicAction, explanation: `${support.explanation} Basic strategy used.` };
+  const isDoubleDeck = support.profile === 'double-deck';
+  const profileId = isDoubleDeck ? DOUBLE_DECK_HILO_INDEX_PROFILE_ID : FULL_HILO_INDEX_PROFILE_ID;
+  const indexCount = isDoubleDeck ? Math.floor(tc) : tc;
+  const countName = isDoubleDeck ? 'floored TC' : 'TC';
   if (input.insurance) {
-    const applies = tc >= 3;
+    const applies = indexCount >= 3;
+    const label = `${countName} ≥ +3`;
     return {
       ...base, action: applies ? 'I' : 'N', indexApplied: applies, threshold: 3,
-      thresholdDirection: 'at-or-above', thresholdLabel: 'TC ≥ +3', profileId: FULL_HILO_INDEX_PROFILE_ID,
-      explanation: applies ? 'Hi-Lo insurance index: take insurance at TC ≥ +3.' : 'Hi-Lo insurance index has not reached TC +3.',
+      thresholdDirection: 'at-or-above', thresholdLabel: label, profileId,
+      explanation: applies ? `Hi-Lo insurance index applied at ${label}.` : `Hi-Lo insurance index requires ${label}; no insurance.`,
     };
   }
   const hand = indexHand(input.playerCards);
   const dealer = cardRank(input.dealerCard);
-  if (!hand || !dealer) return { ...base, action: basicAction, explanation: 'Invalid hand; basic strategy used.', profileId: FULL_HILO_INDEX_PROFILE_ID };
-  const chart = FULL_HILO_INDEX_RULES[rules.dealerHitsSoft17 ? 'h17' : 's17'];
+  if (!hand || !dealer) return { ...base, action: basicAction, explanation: 'Invalid hand; basic strategy used.', profileId };
+  const chart = isDoubleDeck ? DOUBLE_DECK_HILO_INDEX_RULES : FULL_HILO_INDEX_RULES[rules.dealerHitsSoft17 ? 'h17' : 's17'];
   const rule = chart.find((entry) =>
     entry.kind === hand.kind && entry.hand === hand.hand && entry.dealer === dealer &&
     (entry.surrenderContext === undefined || entry.surrenderContext === rules.surrender) &&
-    actionIsLegal(entry.action, input));
+    (isDoubleDeck || actionIsLegal(entry.action, input)));
   if (!rule) {
-    return { ...base, action: basicAction, explanation: 'No applicable legal Hi-Lo index; basic strategy used.', profileId: FULL_HILO_INDEX_PROFILE_ID };
+    const scope = isDoubleDeck ? 'No applicable legal Table 31.2 deviation' : 'No applicable legal Hi-Lo index';
+    return { ...base, action: basicAction, explanation: `${scope}; rule-correct basic strategy used.`, profileId };
   }
   const direction = rule.direction ?? 'at-or-above';
-  const count = rule.index === 0 ? input.runningCount : tc;
+  // The BJA source has special 0+/0- running-count boundaries. Schlesinger
+  // explicitly floors every two-deck true-count index, including zero.
+  const count = isDoubleDeck ? indexCount : rule.index === 0 ? input.runningCount : tc;
   const applies = direction === 'above' ? count > rule.index
     : direction === 'at-or-above' ? count >= rule.index
     : direction === 'below' ? count < rule.index
@@ -268,11 +369,22 @@ export function getRecommendation(input: RecommendationInput): Recommendation {
     : direction === 'at-or-above' ? '≥'
     : direction === 'below' ? '<'
     : '≤';
-  const label = `${rule.index === 0 ? 'RC' : 'TC'} ${comparator} ${signed}`;
+  const label = `${isDoubleDeck ? 'floored TC' : rule.index === 0 ? 'RC' : 'TC'} ${comparator} ${signed}`;
+  const indexedActionIsLegal = actionIsLegal(rule.action, input);
+  const indexApplied = applies && indexedActionIsLegal;
+  const belowAction = isDoubleDeck ? rule.belowAction! : basicAction;
+  const selectedAction = indexApplied ? rule.action : belowAction;
+  const explanation = indexApplied
+    ? `${isDoubleDeck ? 'Schlesinger Table 31.2' : 'Hi-Lo'} index applied: ${getActionName(rule.action)} at ${label}.`
+    : isDoubleDeck && applies
+      ? `Schlesinger Table 31.2 calls for ${getActionName(rule.action)} at ${label}, but that action is unavailable; ${getActionName(belowAction)} is the legal fallback.`
+      : isDoubleDeck
+        ? `Schlesinger Table 31.2 requires ${label}; below the index, ${getActionName(belowAction)}.`
+        : `Hi-Lo index requires ${label}; rule-correct basic strategy used.`;
   return {
-    ...base, action: applies ? rule.action : basicAction, indexApplied: applies, threshold: rule.index,
-    thresholdDirection: direction, thresholdLabel: label, profileId: FULL_HILO_INDEX_PROFILE_ID,
-    explanation: applies ? `Hi-Lo index applied: ${getActionName(rule.action)} at ${label}.` : `Hi-Lo index requires ${label}; basic strategy used.`,
+    ...base, action: selectedAction, indexApplied, threshold: rule.index,
+    thresholdDirection: direction, thresholdLabel: label, profileId,
+    explanation,
   };
 }
 

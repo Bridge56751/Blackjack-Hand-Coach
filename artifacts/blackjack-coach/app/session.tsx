@@ -34,6 +34,8 @@ export default function SessionScreen() {
   const winSound = useAudioPlayer(require('../assets/sounds/win-chime.mp3'));
   const lossSound = useAudioPlayer(require('../assets/sounds/loss-tone.mp3'));
   const storedRules = activeSession?.rules;
+  const [coachEnabled, setCoachEnabled] = useState(storedRules?.coachEnabled !== false);
+  const [countEnabled, setCountEnabled] = useState(storedRules?.cardCountingEnabled === true);
   const rules = storedRules
     ? normalizeTableRules(isHighRoller ? storedRules : { ...storedRules, cardCountingEnabled: false, accuracyMode: 'basic' })
     : undefined;
@@ -124,9 +126,7 @@ export default function SessionScreen() {
   const countCards = (...cards: Card[]) => {
     const sum = cards.reduce((sum, card) => sum + hiLoValue(card), 0);
     runningCountRef.current += sum;
-    if (rules.cardCountingEnabled || rules.accuracyMode === 'hilo-index') {
-      setRunningCount(runningCountRef.current);
-    }
+    setRunningCount(runningCountRef.current);
   };
   const resetCount = () => {
     runningCountRef.current = 0;
@@ -352,9 +352,18 @@ export default function SessionScreen() {
 
       {/* Table Area */}
       <View style={styles.tableCenter}>
-        {rules.coachEnabled !== false && (
-          <View testID="hint-panel" style={styles.hintPanel}>
+          <TouchableOpacity
+            testID="coach-toggle"
+            accessibilityRole="switch"
+            accessibilityLabel="Blackjack Coach hints"
+            accessibilityState={{ checked: coachEnabled }}
+            onPress={() => { setCoachEnabled(enabled => !enabled); buzz(); }}
+            activeOpacity={0.8}
+            style={styles.hintPanel}
+          >
             <Text style={styles.hintEyebrow}>BLACKJACK COACH</Text>
+            <Text style={styles.hintWaiting}>{coachEnabled ? 'ON · TAP TO TURN OFF' : 'OFF · TAP TO TURN ON'}</Text>
+            {coachEnabled && <View testID="hint-panel">
             {hintRec && hitStandOdds ? (
               <>
                 <View style={styles.hintRecommendation}>
@@ -392,10 +401,18 @@ export default function SessionScreen() {
             ) : (
               <Text style={styles.hintWaiting}>{phase === 'settled' ? 'ROUND COMPLETE' : 'HINTS APPEAR AFTER DEAL'}</Text>
             )}
-          </View>
-        )}
-        {rules.cardCountingEnabled ? (
-          <View testID="count-panel" style={styles.countPanel}>
+            </View>}
+          </TouchableOpacity>
+        {isHighRoller && countEnabled ? (
+          <TouchableOpacity
+            testID="count-panel"
+            accessibilityRole="switch"
+            accessibilityLabel="Live card counting"
+            accessibilityState={{ checked: true }}
+            onPress={() => { setCountEnabled(false); buzz(); }}
+            activeOpacity={0.8}
+            style={styles.countPanel}
+          >
             <Text style={styles.countEyebrow}>HI-LO · LIVE</Text>
             <View style={styles.countRow}>
               <View><Text style={styles.countLabel}>RUNNING</Text><Text testID="running-count" style={styles.countValue}>{runningCount > 0 ? '+' : ''}{runningCount}</Text></View>
@@ -405,16 +422,26 @@ export default function SessionScreen() {
             <Text testID="count-edge" style={[styles.edgeText, playerEdge >= 0 ? styles.playerEdge : styles.houseEdge]}>
               {playerEdge >= 0 ? 'PLAYER' : 'HOUSE'} {Math.abs(playerEdge).toFixed(2)}%
             </Text>
-            <Text style={styles.edgeNote}>ESTIMATED EDGE</Text>
-          </View>
+            <Text style={styles.edgeNote}>ON · TAP TO TURN OFF</Text>
+          </TouchableOpacity>
         ) : (
-          <TouchableOpacity testID="count-edge-locked" onPress={() => isHighRoller ? router.push('/settings') : openPaywall('Live House Edge')} style={[styles.countPanel, styles.countPanelLocked]}>
+          <TouchableOpacity
+            testID="count-edge-locked"
+            accessibilityRole={isHighRoller ? 'switch' : 'button'}
+            accessibilityLabel={isHighRoller ? 'Live card counting' : 'Unlock live card counting'}
+            accessibilityState={isHighRoller ? { checked: false } : {}}
+            onPress={() => {
+              if (isHighRoller) { setCountEnabled(true); buzz(); }
+              else openPaywall('Live Card Counting');
+            }}
+            style={[styles.countPanel, styles.countPanelLocked]}
+          >
             <View style={styles.edgeLockedTitle}>
-              <Feather name="lock" size={9} color="rgba(217,197,143,0.7)" />
-              <Text style={styles.countEyebrow}>HOUSE EDGE</Text>
+              <Feather name={isHighRoller ? 'eye-off' : 'lock'} size={9} color="rgba(217,197,143,0.7)" />
+              <Text style={styles.countEyebrow}>HI-LO COUNT</Text>
             </View>
             <Text style={styles.edgeLockedText}>CARD COUNTING</Text>
-            <Text style={styles.edgeNote}>TABLES ONLY</Text>
+            <Text style={styles.edgeNote}>{isHighRoller ? 'OFF · TAP TO TURN ON' : 'HIGH ROLLER · UNLOCK'}</Text>
           </TouchableOpacity>
         )}
         <View style={[styles.dealerArea, isCompactTable && styles.dealerAreaCompact]}>

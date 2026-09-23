@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Platform, Pressable, Modal } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Platform, Pressable } from 'react-native';
 import { useCoach, getSessionStats } from '@/lib/context';
 import { useColors } from '@/hooks/useColors';
 import { useRouter } from 'expo-router';
@@ -15,7 +15,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { getOnboardingRecord } from '@/lib/onboarding';
 import { BottomNav } from '@/components/BottomNav';
-import { normalizeTableRules } from '@/lib/rules';
+import { getHiLoIndexSupport, normalizeTableRules } from '@/lib/rules';
 import { useSubscription } from '@/lib/subscription';
 
 const AnimatedPressable = ({ onPress, style, children, testID }: any) => {
@@ -98,16 +98,15 @@ function HeroCards() {
 }
 
 export default function DashboardScreen() {
-  const { history, preferredRules, preferredRulesReady, startSession, updatePreferredRules } = useCoach();
+  const { history, preferredRules, preferredRulesReady, startSession } = useCoach();
   const { isHighRoller, openPaywall } = useSubscription();
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [countAccuracyOverride, setCountAccuracyOverride] = useState<boolean | null>(null);
-  const [seatPrompt, setSeatPrompt] = useState<'coach' | 'count' | null>(null);
-  const [pendingCoachEnabled, setPendingCoachEnabled] = useState(true);
-  const supportsHiLo = preferredRules.decks === 4 || preferredRules.decks === 6 || preferredRules.decks === 8;
+  const indexSupport = getHiLoIndexSupport(preferredRules);
+  const supportsHiLo = indexSupport.supported;
   const countAdjustedAccuracy = isHighRoller && supportsHiLo
     && (countAccuracyOverride ?? preferredRules.accuracyMode === 'hilo-index');
 
@@ -130,36 +129,12 @@ export default function DashboardScreen() {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
-    if (preferredRules.showSeatPrompt === false) {
-      startSession(normalizeTableRules({
-        ...preferredRules,
-        accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
-        cardCountingEnabled: isHighRoller && preferredRules.cardCountingEnabled === true,
-      }));
-      router.push('/session');
-      return;
-    }
-    setSeatPrompt('coach');
-  };
-
-  const beginSession = (coachEnabled: boolean, showCount: boolean) => {
     startSession(normalizeTableRules({
       ...preferredRules,
       accuracyMode: countAdjustedAccuracy ? 'hilo-index' : 'basic',
-      coachEnabled,
-      cardCountingEnabled: isHighRoller && showCount,
+      cardCountingEnabled: isHighRoller && preferredRules.cardCountingEnabled === true,
     }));
-    setSeatPrompt(null);
     router.push('/session');
-  };
-
-  const chooseCoach = (coachEnabled: boolean) => {
-    if (isHighRoller && countAdjustedAccuracy) {
-      setPendingCoachEnabled(coachEnabled);
-      setSeatPrompt('count');
-      return;
-    }
-    beginSession(coachEnabled, preferredRules.cardCountingEnabled === true);
   };
 
   const selectedMode = countAdjustedAccuracy ? 'hilo-index' : 'basic';
@@ -226,9 +201,11 @@ export default function DashboardScreen() {
                 <Text style={styles.countAccuracyTitle}>CARD COUNTING</Text>
                 <Text style={styles.countAccuracyDetail}>
                   {!supportsHiLo
-                    ? 'Hi-Lo grading requires a 4, 6, or 8-deck shoe'
+                    ? indexSupport.explanation
                     : countAdjustedAccuracy
-                      ? 'Accuracy uses Hi-Lo index plays'
+                      ? indexSupport.profile === 'double-deck'
+                        ? 'Accuracy uses verified floored double-deck indices'
+                        : 'Accuracy uses Hi-Lo index plays'
                       : isHighRoller
                         ? 'Accuracy uses basic strategy'
                         : 'High Roller unlocks count-adjusted grading'}
@@ -274,73 +251,6 @@ export default function DashboardScreen() {
         )}
       </ScrollView>
       <BottomNav />
-      <Modal
-        transparent
-        visible={seatPrompt !== null}
-        animationType="fade"
-        onRequestClose={() => setSeatPrompt(null)}
-      >
-        <View style={styles.promptBackdrop}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setSeatPrompt(null)} />
-          <View style={styles.promptSheet}>
-            <View style={styles.promptSuit}>
-              <MaterialCommunityIcons
-                name={seatPrompt === 'count' ? 'cards-playing-outline' : 'school-outline'}
-                size={25}
-                color="#D4AF37"
-              />
-            </View>
-            <Text style={styles.promptEyebrow}>BEFORE YOU PLAY</Text>
-            <Text style={styles.promptTitle}>
-              {seatPrompt === 'count' ? 'Show the live count?' : 'Use Blackjack Coach?'}
-            </Text>
-            <Text style={styles.promptBody}>
-              {seatPrompt === 'count'
-                ? 'Choose whether the running count, true count, and estimated edge appear on the table. Your decisions are still graded at the count either way.'
-                : 'Choose whether Hit and Stand percentages and the recommended action appear while you play. Every decision is still graded after the session.'}
-            </Text>
-            <Pressable
-              testID="seat-prompt-always-show"
-              onPress={() => updatePreferredRules(current => normalizeTableRules({
-                ...current,
-                showSeatPrompt: current.showSeatPrompt === false,
-              }))}
-              style={styles.promptPreference}
-            >
-              <Feather
-                name={preferredRules.showSeatPrompt === false ? 'square' : 'check-square'}
-                size={18}
-                color={preferredRules.showSeatPrompt === false ? 'rgba(255,255,255,0.5)' : '#D4AF37'}
-              />
-              <View style={styles.promptPreferenceCopy}>
-                <Text style={styles.promptPreferenceTitle}>Always show before taking a seat</Text>
-                <Text style={styles.promptPreferenceDetail}>Turn off to use your saved Dealer Settings automatically.</Text>
-              </View>
-            </Pressable>
-            <View style={styles.promptActions}>
-              {seatPrompt === 'coach' ? (
-                <>
-                  <Pressable testID="coach-hide" style={styles.promptSecondary} onPress={() => chooseCoach(false)}>
-                    <Text style={styles.promptSecondaryText}>PLAY WITHOUT HINTS</Text>
-                  </Pressable>
-                  <Pressable testID="coach-show" style={styles.promptPrimary} onPress={() => chooseCoach(true)}>
-                    <Text style={styles.promptPrimaryText}>SHOW COACH</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Pressable testID="count-hide" style={styles.promptSecondary} onPress={() => beginSession(pendingCoachEnabled, false)}>
-                    <Text style={styles.promptSecondaryText}>HIDE COUNT</Text>
-                  </Pressable>
-                  <Pressable testID="count-show" style={styles.promptPrimary} onPress={() => beginSession(pendingCoachEnabled, true)}>
-                    <Text style={styles.promptPrimaryText}>SHOW COUNT</Text>
-                  </Pressable>
-                </>
-              )}
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }

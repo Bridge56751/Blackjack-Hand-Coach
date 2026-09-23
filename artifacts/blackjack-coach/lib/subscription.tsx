@@ -9,33 +9,17 @@ import Purchases, {
 } from 'react-native-purchases';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { HighRollerPaywall } from '@/components/HighRollerPaywall';
+import {
+  EMPTY_HIGH_ROLLER_ACCESS_STATE,
+  evaluateHighRollerAccess,
+  HighRollerAccessDecision,
+  HighRollerAccessState,
+  HighRollerCustomerSnapshot,
+  observeHighRollerClock,
+} from '@/lib/high-roller-access-policy';
 
 export const HIGH_ROLLER_ENTITLEMENT = 'com_howtoplayblackjack_app_High_Roller';
-const CUSTOMER_INFO_MAX_AGE_MS = 10 * 60_000;
 const CUSTOMER_INFO_REFRESH_INTERVAL_MS = 5 * 60_000;
-
-function hasHighRollerEntitlement(
-  info: CustomerInfo | undefined,
-  expiredThroughRequestDate = 0,
-): boolean {
-  if (!info) return false;
-  const requestedAt = Date.parse(info.requestDate);
-  if (!Number.isFinite(requestedAt) || requestedAt <= expiredThroughRequestDate) return false;
-  const entitlement = info.entitlements.active[HIGH_ROLLER_ENTITLEMENT];
-  if (!entitlement?.isActive) return false;
-  if (entitlement.verification === Purchases.VERIFICATION_RESULT.FAILED) return false;
-
-  if (!__DEV__) {
-    const verified = entitlement.verification === Purchases.VERIFICATION_RESULT.VERIFIED
-      || entitlement.verification === Purchases.VERIFICATION_RESULT.VERIFIED_ON_DEVICE;
-    if (!verified) return false;
-
-    const age = Date.now() - requestedAt;
-    if (age < -60_000 || age > CUSTOMER_INFO_MAX_AGE_MS) return false;
-  }
-
-  return true;
-}
 
 const testApiKey = process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY;
 const iosApiKey = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY;
@@ -43,12 +27,6 @@ const androidApiKey = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
 
 let configured = false;
 let configurationError: string | null = null;
-
-async function invalidateCustomerInfoCache() {
-  if (Platform.OS !== 'web') {
-    await Purchases.invalidateCustomerInfoCache();
-  }
-}
 
 function apiKeyForRuntime() {
   if (__DEV__) return testApiKey;
@@ -109,35 +87,57 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [paywallVisible, setPaywallVisible] = useState(false);
   const [paywallSource, setPaywallSource] = useState<string>();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [expiredThroughRequestDate, setExpiredThroughRequestDate] = useState(0);
-  const [hasAuthoritativeCustomerInfo, setHasAuthoritativeCustomerInfo] = useState(__DEV__);
-  const newestRequestDateRef = useRef(0);
+  const productionNativeRuntime = !__DEV__
+    && Platform.OS !== 'web'
+    && Constants.executionEnvironment !== 'storeClient';
+  const policyStateRef = useRef<HighRollerAccessState>(EMPTY_HIGH_ROLLER_ACCESS_STATE);
+  const [policyDecision, setPolicyDecision] = useState<HighRollerAccessDecision>(() => ({
+    state: EMPTY_HIGH_ROLLER_ACCESS_STATE,
+    authorized: false,
+    reason: productionNativeRuntime ? 'expired' : 'invalid-runtime',
+  }));
 
   useEffect(() => {
     initializeRevenueCat();
   }, []);
 
-  const acceptCustomerInfo = useCallback((info: CustomerInfo) => {
-    const requestedAt = Date.parse(info.requestDate);
-    if (!Number.isFinite(requestedAt)) return false;
-    if (!__DEV__ && requestedAt < newestRequestDateRef.current) return false;
-    newestRequestDateRef.current = Math.max(newestRequestDateRef.current, requestedAt);
-    return true;
-  }, []);
+  const applyCustomerInfo = useCallback((info: CustomerInfo) => {
+    const entitlement = info.entitlements.active[HIGH_ROLLER_ENTITLEMENT];
+    const snapshot: HighRollerCustomerSnapshot = {
+      requestDate: info.requestDate,
+      entitlementsVerification: info.entitlements.verification,
+      entitlement: entitlement ? {
+        identifier: entitlement.identifier,
+        isActive: entitlement.isActive,
+        verification: entitlement.verification,
+        expirationDate: entitlement.expirationDate,
+        isSandbox: entitlement.isSandbox,
+        store: entitlement.store,
+      } : undefined,
+    };
+    const decision = evaluateHighRollerAccess(
+      policyStateRef.current,
+      snapshot,
+      Date.now(),
+      productionNativeRuntime,
+    );
+    policyStateRef.current = decision.state;
+    setPolicyDecision(decision);
+    return decision;
+  }, [productionNativeRuntime]);
 
-  const fetchAuthoritativeCustomerInfo = useCallback(async () => {
-    if (!__DEV__) await invalidateCustomerInfoCache();
+  const fetchCustomerInfo = useCallback(async () => {
+    // getCustomerInfo() is deliberately called without invalidating first. The
+    // RN SDK has no cache-policy argument in 10.9.0, and its persisted,
+    // signature-verified CustomerInfo may be the only cold-start offline copy.
     const info = await Purchases.getCustomerInfo();
-    if (!acceptCustomerInfo(info)) {
-      throw new Error('RevenueCat returned an out-of-order customer record.');
-    }
-    setHasAuthoritativeCustomerInfo(true);
+    applyCustomerInfo(info);
     return info;
-  }, [acceptCustomerInfo]);
+  }, [applyCustomerInfo]);
 
   const customerQuery = useQuery({
     queryKey: ['revenuecat', 'customer'],
-    queryFn: fetchAuthoritativeCustomerInfo,
+    queryFn: fetchCustomerInfo,
     enabled: configured,
     staleTime: 60_000,
     refetchInterval: CUSTOMER_INFO_REFRESH_INTERVAL_MS,
@@ -151,54 +151,36 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   });
 
   useEffect(() => {
-    if (__DEV__ || !customerQuery.data) return;
-
-    const requestDate = customerQuery.data.requestDate;
-    const requestedAt = Date.parse(requestDate);
-    if (requestedAt <= expiredThroughRequestDate) return;
-    const age = Date.now() - requestedAt;
-    if (!Number.isFinite(requestedAt) || age < -60_000 || age >= CUSTOMER_INFO_MAX_AGE_MS) {
-      if (Number.isFinite(requestedAt)) {
-        setExpiredThroughRequestDate(previous => Math.max(previous, requestedAt));
-      }
-      return;
-    }
-
-    const timer = setTimeout(
-      () => setExpiredThroughRequestDate(previous => Math.max(previous, requestedAt)),
-      CUSTOMER_INFO_MAX_AGE_MS - age + 50,
-    );
+    if (!policyDecision.authorized) return;
+    const remainingMs = policyDecision.state.authorizationDeadlineMs - Date.now();
+    const timer = setTimeout(() => {
+      const decision = observeHighRollerClock(policyStateRef.current, Date.now());
+      policyStateRef.current = decision.state;
+      setPolicyDecision(decision);
+    }, Math.max(0, remainingMs) + 50);
     return () => clearTimeout(timer);
-  }, [customerQuery.data, expiredThroughRequestDate]);
+  }, [policyDecision]);
 
   useEffect(() => {
     if (!configured) return;
     const listener = (info: CustomerInfo) => {
-      if (acceptCustomerInfo(info)) {
-        queryClient.setQueryData(['revenuecat', 'customer'], info);
-      }
+      applyCustomerInfo(info);
+      queryClient.setQueryData(['revenuecat', 'customer'], info);
     };
     Purchases.addCustomerInfoUpdateListener(listener);
     return () => {
       Purchases.removeCustomerInfoUpdateListener(listener);
     };
-  }, [acceptCustomerInfo, queryClient]);
+  }, [applyCustomerInfo, queryClient]);
 
   useEffect(() => {
     if (!configured) return;
     const subscription = AppState.addEventListener('change', state => {
       if (state === 'active') {
-        const current = queryClient.getQueryData<CustomerInfo>(['revenuecat', 'customer']);
-        if (!__DEV__) setHasAuthoritativeCustomerInfo(false);
-        if (current) {
-          const requestedAt = Date.parse(current.requestDate);
-          if (Number.isFinite(requestedAt)) {
-            setExpiredThroughRequestDate(previous => Math.max(previous, requestedAt));
-          }
-        }
-        void invalidateCustomerInfoCache()
-          .catch(() => undefined)
-          .then(() => queryClient.invalidateQueries({ queryKey: ['revenuecat', 'customer'] }));
+        const decision = observeHighRollerClock(policyStateRef.current, Date.now());
+        policyStateRef.current = decision.state;
+        setPolicyDecision(decision);
+        void queryClient.invalidateQueries({ queryKey: ['revenuecat', 'customer'] });
       }
     });
     return () => subscription.remove();
@@ -208,12 +190,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     mutationFn: async (pkg: PurchasesPackage) => {
       setActionError(null);
       const result = await Purchases.purchasePackage(pkg);
-      if (!acceptCustomerInfo(result.customerInfo)) {
-        throw new Error('The purchase status could not be verified. Restore purchases and try again.');
-      }
-      setHasAuthoritativeCustomerInfo(true);
+      const decision = applyCustomerInfo(result.customerInfo);
       queryClient.setQueryData(['revenuecat', 'customer'], result.customerInfo);
-      if (!hasHighRollerEntitlement(result.customerInfo, expiredThroughRequestDate)) {
+      if (!decision.authorized) {
         throw new Error('Purchase completed, but High Roller access was not activated. Restore purchases or contact support.');
       }
       return result.customerInfo;
@@ -230,30 +209,32 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const restoreMutation = useMutation({
     mutationFn: async () => {
       const info = await Purchases.restorePurchases();
-      if (!acceptCustomerInfo(info)) {
-        throw new Error('The restored purchase status could not be verified. Try again.');
+      const decision = applyCustomerInfo(info);
+      if (!decision.authorized) {
+        throw new Error('No verified active High Roller purchase was found.');
       }
-      setHasAuthoritativeCustomerInfo(true);
       return info;
     },
     onSuccess: info => {
       queryClient.setQueryData(['revenuecat', 'customer'], info);
-      if (hasHighRollerEntitlement(info, expiredThroughRequestDate)) setPaywallVisible(false);
-      else setActionError('No active High Roller purchase was found.');
+      setPaywallVisible(false);
     },
     onError: error => setActionError(error instanceof Error ? error.message : 'Purchases could not be restored.'),
   });
 
   const value = useMemo<SubscriptionContextValue>(() => ({
-    isHighRoller: hasAuthoritativeCustomerInfo
-      && hasHighRollerEntitlement(customerQuery.data, expiredThroughRequestDate),
+    isHighRoller: policyDecision.authorized,
     isLoading: configured && (customerQuery.isLoading || offeringsQuery.isLoading),
     isPurchasing: purchaseMutation.isPending,
     isRestoring: restoreMutation.isPending,
     offering: offeringsQuery.data?.current ?? undefined,
     error: actionError
       ?? configurationError
-      ?? (customerQuery.error instanceof Error ? customerQuery.error.message : null)
+      ?? (customerQuery.error instanceof Error
+        && policyDecision.reason === 'expired'
+        && policyDecision.state.authorizationDeadlineMs > 0
+        ? 'The 36-hour offline access window expired. Reconnect to verify High Roller.'
+        : customerQuery.error instanceof Error ? customerQuery.error.message : null)
       ?? (offeringsQuery.error instanceof Error ? offeringsQuery.error.message : null),
     openPaywall: (source?: string) => {
       setActionError(null);
@@ -264,7 +245,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     purchase: purchaseMutation.mutateAsync,
     restore: restoreMutation.mutateAsync,
     refresh: async () => {
-      await invalidateCustomerInfoCache();
       await Promise.all([customerQuery.refetch(), offeringsQuery.refetch()]);
     },
   }), [
@@ -275,8 +255,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     offeringsQuery.data,
     offeringsQuery.error,
     offeringsQuery.isLoading,
-    expiredThroughRequestDate,
-    hasAuthoritativeCustomerInfo,
+    policyDecision,
     purchaseMutation.isPending,
     restoreMutation.isPending,
   ]);
