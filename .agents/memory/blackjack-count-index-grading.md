@@ -14,3 +14,9 @@ For two-sided index tables, encode the action below the threshold explicitly rat
 **Why:** Basic strategy may already recommend the above-threshold action (for example, standing on hard 12 against 4), so a generic fallback silently erases negative-count deviations. Regression expectations must be independent of that fallback.
 
 **How to apply:** Verify both sides and exact boundaries of each index, its count-rounding convention, and legal-action fallbacks.
+
+Do not treat a named book or product listing as verification of its single-deck tables. Wong editions differ, and a rounding convention from one publication cannot validate another publication's indices.
+
+**Why:** Public source descriptions identify credible single-deck leads without exposing the complete rule-scoped tables and legends needed to grade decisions.
+
+**How to apply:** Obtain the actual table and methodology together before enabling single-deck grading; source leads and missing evidence are recorded in `research/single-deck-hilo-source-blocker.md`.
